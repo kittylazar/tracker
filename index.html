@@ -334,6 +334,21 @@ button.card:active { transform: scale(.985); }
 
 /* ---------- sections ---------- */
 .top-r { display: flex; align-items: center; gap: 6px; }
+/* Sign-in screen. Until you sign in (or choose this device only), nothing of the app shows. */
+body.gated .app, body.gated .tabs { display: none; }
+.gate { position: fixed; inset: 0; z-index: 50; overflow-y: auto; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+.gate-card { width: 100%; max-width: 420px; }
+.gate-card .brand { margin-bottom: 28px; }
+.gate-card h1 { font: 650 40px/1.05 var(--display); letter-spacing: -.035em; margin: 0 0 10px; }
+.gate-card .sub { margin: 0 0 22px; line-height: 1.5; }
+.gate-field { display: block; margin-top: 14px; }
+.gate-field .label { display: block; margin-bottom: 6px; }
+.gate-url { margin: 0; word-break: break-all; }
+.gate-url span { color: var(--text); }
+.gate-card .btn.block { margin-top: 18px; }
+.gate-msg:empty { display: none; }
+.gate-msg { color: #ff8a8a; }
+.gate-alt { margin-top: 26px; }
 .sync-pill { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); padding: 6px 11px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); transition: transform .25s var(--spring); }
 .sync-pill:active { transform: scale(.93); }
 .sync-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--glow); }
@@ -1712,7 +1727,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
         <button class="btn" data-act="export">Export</button>
         <button class="btn" data-act="import">Import</button>
       </div>
-      <p class="note">Your days are stored only in this browser. Export a backup file now and then.</p>
+      <p class="note">A file with everything on this device, for safekeeping.</p>
       <h3>Danger</h3>
       <button class="btn danger block" data-act="wipe">Delete everything</button>`);
   }

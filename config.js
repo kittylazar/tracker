@@ -1,7 +1,9 @@
 // Tracker connection settings.
-// Empty for now: the app keeps everything in this browser.
-// When the app goes online, the database address and public key go here.
+// sheetUrl: your sheet script's Web app URL (ends in /exec). If it is set here, every device only asks for
+// the password. Left empty, each device asks for the address once, at the first sign-in.
+// The address alone gives no access to your data: the password is still needed.
 window.STILLDAY_CONFIG = {
+  sheetUrl: "",
   supabaseUrl: "",
   supabaseAnonKey: ""
 };

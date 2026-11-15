@@ -130,7 +130,7 @@
   async function importFiles(list) {
     const files = [...list];
     if (!files.length) return;
-    openSheet(`<div class="sheet-head"><h2>Reading your history</h2></div><p class="sub" id="musicProg">Looking through ${files.length} file${files.length === 1 ? "" : "s"}…</p><p class="note">Everything stays in this browser. Large exports can take a minute.</p>`);
+    openSheet(`<div class="sheet-head"><h2>Reading your history</h2></div><p class="sub" id="musicProg">Looking through ${files.length} file${files.length === 1 ? "" : "s"}…</p><p class="note">${A.sync && A.sync.signedIn() ? "Only a summary is kept, in your Tracker Drive folder, so your other devices get it too." : "Everything stays in this browser."} Large exports can take a minute.</p>`);
     try {
       const entries = [];
       for (const f of files) {
@@ -159,6 +159,12 @@
       M = next; st.year = "all"; A.changed();
       closeSheet(); paint(true);
       toast(`Imported ${fmtNum(M.plays)} plays`);
+      // Keep the summary in Drive, so you never have to choose these files again on another device.
+      if (driveReady()) {
+        A.sync.call("musicSave", { summary: M })
+          .then(() => { drive = { checkedAt: new Date().toISOString(), files: 0, error: "" }; LS.set(DKEY, JSON.stringify(drive)); toast("Music saved to your Drive for your other devices"); })
+          .catch(e => toast(`Music is on this device, but saving it to Drive failed: ${e.message}`));
+      }
     } catch (e) {
       closeSheet(); toast(e.message || "Couldn't read those files.");
     }
@@ -175,10 +181,10 @@
   let drive = {};
   try { drive = JSON.parse(LS.get(DKEY) || "{}") || {}; } catch (e) { drive = {}; }
   let driveBusy = false, autoTried = false;
-  const driveReady = () => !!(A.sync && A.sync.ready());
+  const driveReady = () => !!(A.sync && A.sync.signedIn());
   async function fromDrive(manual) {
     if (driveBusy) return;
-    if (!driveReady()) { if (manual) toast("Connect Google Sheets in Settings first."); return; }
+    if (!driveReady()) { if (manual) toast("Sign in first (Settings → Account)."); return; }
     driveBusy = true; if (manual) paint(true);
     try {
       const out = await A.sync.call("music", { force: manual === "force" });
@@ -199,16 +205,22 @@
     driveBusy = false;
     if (document.querySelector("#view") && A.VIEWS && document.querySelector('[data-tab="music"].on')) paint(true);
   }
-  // When the Music page opens, check Drive at most every 6 hours.
+  // Check Drive when nothing is loaded on this device yet, otherwise at most every 6 hours.
+  function check() {
+    if (!driveReady() || driveBusy) return Promise.resolve();
+    const last = Date.parse(drive.checkedAt || 0) || 0;
+    if (M && Date.now() - last < 6 * 3600e3) return Promise.resolve();
+    return fromDrive(false);
+  }
   function autoCheck() {
     if (autoTried || !driveReady()) return;
     autoTried = true;
-    const last = Date.parse(drive.checkedAt || 0) || 0;
-    if (Date.now() - last > 6 * 3600e3) setTimeout(() => fromDrive(false), 400);
+    setTimeout(check, 400);
   }
+  A.music = { fromDrive, check, has: () => !!M };
   const when = iso => { try { return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
   function driveBar() {
-    if (!driveReady()) return `<p class="note">To load from Google Drive, connect Google Sheets in Settings first.</p>`;
+    if (!driveReady()) return `<p class="note">Sign in (Settings → Account) to keep your music in Google Drive.</p>`;
     return `<div class="drive-bar">
       <span class="sub">${driveBusy ? "Reading your Drive folder…" : drive.error ? `Last check failed: ${esc(drive.error)}` : drive.checkedAt ? `Checked Drive ${esc(when(drive.checkedAt))}` : "Not checked yet"}</span>
       <button class="chip" data-act="music-drive" ${driveBusy ? "disabled" : ""}>${driveBusy ? "Checking…" : "Check Drive now"}</button>
@@ -249,7 +261,7 @@
         <b style="font-size:18px">Load your Spotify history from Google Drive</b>
         <p>Keep your Spotify export in a Drive folder called <b>Tracker Spotify</b>. Your sheet script reads it and sends Tracker a small summary. Drop in a new export any time and it updates by itself.</p>
         <button class="btn primary" data-act="music-drive" style="margin-top:6px" ${driveBusy ? "disabled" : ""}>${driveBusy ? "Reading your Drive folder…" : "Load from Drive"}</button>
-        ${driveReady() ? (drive.error ? `<p class="note">Last check: ${esc(drive.error)}</p>` : "") : `<p class="note">Connect Google Sheets in Settings first (setup steps are in the stillday-setup folder).</p>`}
+        ${driveReady() ? (drive.error ? `<p class="note">Last check: ${esc(drive.error)}</p>` : "") : `<p class="note">Sign in first (Settings → Account).</p>`}
       </div></section>
       <section class="section">
         <h2>How to set it up</h2>
@@ -259,7 +271,7 @@
           <li>Unzip Spotify's download and put the JSON files (or the whole folder) in it. A ZIP works too if it's not huge.</li>
           <li>Tap <b>Load from Drive</b>. After that, Tracker checks the folder by itself when you open Music.</li>
         </ol>
-        <p class="note">Plays under 30 seconds count as skips and podcasts are left out. Prefer not to use Drive? <button class="linkbtn" data-act="music-import">Choose the files from this device</button> instead.</p>
+        <p class="note">Plays under 30 seconds count as skips and podcasts are left out. Have the files on this device instead? <button class="linkbtn" data-act="music-import">Choose them here</button>. Tracker reads them once and keeps the summary in your Drive folder, so you don't need to do it again on another device.</p>
       </section>`;
     }
 
