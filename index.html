@@ -355,6 +355,25 @@ button.card:active { transform: scale(.985); }
 .chart rect.empty { fill: var(--surface2); animation: none; }
 .chart-foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
 @keyframes grow { from { transform: scaleY(0); } }
+.bchart { --bh: 96px; position: relative; display: grid; margin-top: 30px; align-items: stretch; }
+.bchart .bcw { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.bchart .bc { position: relative; width: 100%; max-width: 46px; height: var(--bh); display: flex; flex-direction: column; justify-content: flex-end; border-radius: 99px; background: color-mix(in srgb, var(--text) 7%, transparent); }
+.bchart .bc i { display: block; width: 100%; border-radius: 99px; background: linear-gradient(180deg, var(--c1), var(--c2)); transform-origin: bottom; animation: grow .8s var(--spring, var(--ease)) both; box-shadow: 0 5px 14px -6px var(--c1); position: relative; }
+.bchart .bc.empty::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--muted); opacity: .45; }
+.bchart .bc i.peak::after { content: ""; position: absolute; left: 50%; top: 5px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, #fff 28%, transparent), 0 0 10px 2px var(--c1); animation: cx-fade .5s .7s both; }
+.bchart.thin .bc i.peak::after { display: none; }
+.bchart .bcw span { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.bchart .bv { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); font-style: normal; font-size: 11px; font-weight: 650; white-space: nowrap; padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--text); animation: cx-fade .5s .6s both; }
+.bchart .bv.el { left: 0; transform: none; }
+.bchart .bv.er { left: auto; right: 0; transform: none; }
+.bchart .bgoal { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed color-mix(in srgb, var(--text) 30%, transparent); pointer-events: none; z-index: 1; }
+.bchart .bgoal { bottom: calc(var(--lab, 0px) + var(--g) * var(--bh)); }
+.bchart.wd { --lab: 19px; }
+.bchart .bgoal span { position: absolute; right: 0; bottom: 3px; font-size: 10px; color: var(--muted); letter-spacing: .04em; }
+.bchart .bcw.tap { cursor: pointer; }
+.bchart .bcw.tap:hover .bc { background: color-mix(in srgb, var(--text) 12%, transparent); }
+.bchart .bcw.tap:hover .bc i { filter: brightness(1.12); }
+@media (prefers-reduced-motion: reduce) { .bchart .bc i, .bchart .bv, .bchart .bc i.peak::after { animation: none; } }
 
 /* ---------- stats ---------- */
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -1718,13 +1737,20 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
   function chart(W, key, show) {
     const vals = W.buckets.map(b => avgOf(b.days.map(d => dayVal(d, key)).filter(v => v != null)));
     const have = W.days.map(d => dayVal(d, key)).filter(v => v != null);
-    const max = Math.max(1, ...vals.filter(v => v != null)), n = vals.length, VW = 300, H = 80, bw = VW / n, gap = n > 40 ? 1 : n > 10 ? 2 : 6;
+    // Rounded pill bars on a soft track, a glowing dot and value on the tallest, and a dashed goal line.
+    const goal = key === "sleepMin" ? settings.sleepGoalH * 60 : key === "steps" ? settings.stepGoal : 0;
+    const top = vals.reduce((b, v, i) => v != null && (b < 0 || v > vals[b]) ? i : b, -1);
+    const max = Math.max(1, ...vals.filter(v => v != null), goal * 1.04), n = vals.length;
+    const gap = n > 40 ? 1 : n > 20 ? 2 : n > 10 ? 4 : 8, days = W.unit === "day" && n <= 14, thin = n > 20;
     const bars = vals.map((v, i) => {
-      const h = v == null ? 2 : Math.max(3, (v / max) * H), b = W.buckets[i], one = b.days.length === 1;
+      const b = W.buckets[i], one = b.days.length === 1;
       const tip = `${bucketLabel(b, W.unit)}: ${v == null ? (one ? "no data, tap to add" : "no data") : (one ? "" : "average ") + show(v)}`;
-      return `<rect class="${v == null ? "empty" : ""} ${one ? "tap" : ""}" ${one ? `data-act="health-day" data-date="${b.key}"` : ""} x="${(i * bw + gap / 2).toFixed(2)}" y="${(H - h).toFixed(1)}" width="${Math.max(.5, bw - gap).toFixed(2)}" height="${h.toFixed(1)}" rx="${Math.min(6, (bw - gap) / 2).toFixed(1)}" style="animation-delay:${Math.min(i, 60) * 18}ms"><title>${esc(tip)}</title></rect>`;
+      const pct = v == null ? 0 : Math.max(thin ? 3 : 7, v / max * 100);
+      const edge = i === 0 ? " el" : i === n - 1 ? " er" : "";
+      return `<div class="bcw ${one ? "tap" : ""}" ${one ? `data-act="health-day" data-date="${b.key}"` : ""} title="${esc(tip)}"><div class="bc ${v == null ? "empty" : ""}"><i class="${i === top && v != null ? "peak" : ""}" style="height:${pct.toFixed(1)}%;animation-delay:${Math.min(i, 60) * 22}ms"></i>${i === top && n <= 14 && v != null ? `<em class="bv${edge}">${esc(show(v))}</em>` : ""}</div>${days ? `<span>${esc(fmt(b.key, { weekday: "narrow" }))}</span>` : ""}</div>`;
     }).join("");
-    return { avg: avgOf(have), count: have.length, svg: `<svg viewBox="0 0 ${VW} ${H}" preserveAspectRatio="none" role="img">${bars}</svg>` };
+    const gl = goal ? `<div class="bgoal" style="--g:${(goal / max).toFixed(3)}"><span>goal</span></div>` : "";
+    return { avg: avgOf(have), count: have.length, svg: `<div class="bchart ${days ? "wd" : ""} ${thin ? "thin" : ""}" style="grid-template-columns:repeat(${n},minmax(0,1fr));gap:${gap}px" role="img">${gl}${bars}</div>` };
   }
 
   function bodyStats(W) {
