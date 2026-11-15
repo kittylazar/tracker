@@ -184,7 +184,7 @@
       // Keep the summary in Drive, so you never have to choose these files again on another device.
       if (driveReady()) {
         A.sync.call("musicSave", { summary: M })
-          .then(() => { drive = { checkedAt: new Date().toISOString(), files: 0, error: "" }; LS.set(DKEY, JSON.stringify(drive)); toast("Music saved to your Drive for your other devices"); })
+          .then(out => { drive = { checkedAt: new Date().toISOString(), files: 0, error: "", sig: (out && out.sig) || "" }; LS.set(DKEY, JSON.stringify(drive)); toast("Music saved to your Drive for your other devices"); })
           .catch(e => toast(`Music is on this device, but saving it to Drive failed: ${e.message}`));
       }
     } catch (e) {
@@ -209,9 +209,15 @@
     if (!driveReady()) { if (manual) toast("Sign in first (Settings → Account)."); return; }
     driveBusy = true; if (manual) paint(true);
     try {
-      const out = await A.sync.call("music", { force: manual === "force" });
+      // Tell the script which version this device has, so an unchanged summary isn't downloaded again.
+      const have = M && manual !== "force" ? drive.sig || "" : "";
+      const out = await A.sync.call("music", { force: manual === "force", have });
+      drive = { checkedAt: new Date().toISOString(), files: out.files || 0, error: "", sig: out.sig || "" };
+      if (out.same) {
+        if (manual) toast("Music is up to date");
+        throw null;
+      }
       const next = clean(out.summary);
-      drive = { checkedAt: new Date().toISOString(), files: out.files || 0, error: "" };
       if (!next) throw new Error(out.message || "No Spotify history found in the Drive folder yet.");
       const changed = !M || next.importedAt !== M.importedAt || next.plays !== M.plays;
       if (changed) {
@@ -220,18 +226,23 @@
       }
       if (manual || changed) toast(changed ? `Music updated: ${fmtNum(M.plays)} plays` : "Music is up to date");
     } catch (e) {
-      drive = Object.assign(drive, { checkedAt: new Date().toISOString(), error: e.message || String(e) });
-      if (manual) toast(e.message || "Couldn't read the Drive folder.");
+      // null: nothing went wrong, the summary just hadn't changed.
+      if (e !== null) {
+        drive = Object.assign(drive, { checkedAt: new Date().toISOString(), error: e.message || String(e) });
+        if (manual) toast(e.message || "Couldn't read the Drive folder.");
+      }
     }
+    if (manual) delete drive.removed;
     LS.set(DKEY, JSON.stringify(drive));
     driveBusy = false;
     if (document.querySelector("#view") && A.VIEWS && document.querySelector('[data-tab="music"].on')) paint(true);
   }
-  // Check Drive when nothing is loaded on this device yet, otherwise at most every 6 hours.
+  // Check Drive the first time, then at most every 6 hours (also when the folder had nothing yet).
+  // After "Remove music data" it only looks again when you ask it to.
   function check() {
-    if (!driveReady() || driveBusy) return Promise.resolve();
+    if (!driveReady() || driveBusy || drive.removed) return Promise.resolve();
     const last = Date.parse(drive.checkedAt || 0) || 0;
-    if (M && Date.now() - last < 6 * 3600e3) return Promise.resolve();
+    if (Date.now() - last < 6 * 3600e3) return Promise.resolve();
     return fromDrive(false);
   }
   function autoCheck() {
@@ -521,7 +532,9 @@
   EXTRA.actions["music-year"] = el => { st.year = el.dataset.y; st.armed = false; paint(true); };
   EXTRA.actions["music-remove"] = () => {
     if (!st.armed) { st.armed = true; paint(true); return; }
-    st.armed = false; M = null; LS.del(KEY); A.changed(); paint(true); toast("Music data removed");
+    st.armed = false; M = null; LS.del(KEY);
+    drive = Object.assign(drive, { removed: true, sig: "" }); LS.set(DKEY, JSON.stringify(drive));
+    A.changed(); paint(true); toast("Music data removed from this device");
   };
 
   EXTRA.today.push(d => {
@@ -533,15 +546,5 @@
 
   HOOKS.exportParts.push(() => M ? { music: M } : {});
   HOOKS.importParts.push(raw => { const c = clean(raw && raw.music); if (c && LS.set(KEY, JSON.stringify(c))) M = c; });
-  HOOKS.wipe.push(() => { M = null; LS.del(KEY); });
-  HOOKS.syncParts.push(() => {
-    if (!M) return {};
-    const months = {};
-    Object.keys(M.days).forEach(k => { const m = k.slice(0, 7), r = months[m] || (months[m] = [0, 0]); r[0] += M.days[k][1]; r[1] += M.days[k][0]; });
-    return { music: {
-      summary: [["Plays", M.plays], ["Minutes listened", M.min], ["Artists", M.uniqueArtists], ["Tracks", M.uniqueTracks], ["Skipped early", M.skips], ["From", M.first], ["To", M.last]],
-      topArtists: M.artists.slice(0, 100),
-      months: Object.keys(months).sort().map(m => [m, months[m][0], months[m][1]])
-    } };
-  });
+  HOOKS.wipe.push(() => { M = null; LS.del(KEY); drive = {}; LS.del(DKEY); });
 })();

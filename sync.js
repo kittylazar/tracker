@@ -1,33 +1,46 @@
 /* Tracker: your account. You sign in once per device with the password from your sheet script; after that
    everything (journal, body numbers, ideas, flights, music) is loaded from and saved to your Google Sheet
-   and Drive folder by itself. The device keeps only a random login key, never the password. */
+   and Drive folder by itself. The device keeps only a random login key, never the password.
+
+   Each sync is one small request: this device sends only what changed here since the last sync (the outbox),
+   and the sheet answers with only what changed there since then. */
 (function () {
   "use strict";
   const A = window.Stillday;
   if (!A) return;
-  const { $, esc, toast, paint, Store, Ideas, settings, saveSettings, HOOKS, EXTRA } = A;
+  const { $, esc, toast, paint, Store, Ideas, Outbox, settings, saveSettings, HOOKS, EXTRA } = A;
   const CFG = window.STILLDAY_CONFIG || {};
 
   const URL_OK = /^https:\/\/script\.google\.com\/(a\/macros\/[\w.-]+\/|macros\/)s\/[\w-]+\/exec$/;
   const sheetUrl = () => URL_OK.test(settings.syncUrl || "") ? settings.syncUrl : (URL_OK.test(CFG.sheetUrl || "") ? CFG.sheetUrl : "");
   const signedIn = () => !!(settings.session && sheetUrl());
 
-  // The old "secret word" setup is replaced by signing in; forget it on this device.
+  // Older versions kept a secret word, a yes/no "dirty" flag and sent everything. Unsent changes from then are
+  // sent in full once.
   if ("syncToken" in settings || "syncAuto" in settings) { delete settings.syncToken; delete settings.syncAuto; saveSettings(); }
+  if ("dirty" in settings) { if (settings.dirty) settings.pushAll = true; delete settings.dirty; saveSettings(); }
 
-  let timer = null, running = null, again = false, pulling = false, quiet = false, state = "ok", err = "", lastPull = 0;
+  const TIMEOUT = 25000;
+  let timer = null, running = null, again = null, merging = false, quiet = false, state = "ok", err = "", lastTry = 0, fails = 0;
   const when = iso => { try { return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
 
   /* ---------- talking to the sheet script ---------- */
-  async function post(url, body) {
+  async function post(url, body, opts) {
+    const ctl = typeof AbortController === "function" ? new AbortController() : null;
+    const stop = ctl ? setTimeout(() => ctl.abort(), TIMEOUT) : null;
     let res;
     try {
       res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" }, // a "simple" request, so no CORS preflight
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: ctl ? ctl.signal : undefined,
+        // Lets the request finish even if you close Tracker right after a change.
+        keepalive: !!(opts && opts.keepalive)
       });
-    } catch (e) { throw new Error("Couldn't reach your sheet. Check your internet connection."); }
+    } catch (e) {
+      throw new Error(e && e.name === "AbortError" ? "Your sheet took too long to answer." : "Couldn't reach your sheet. Check your internet connection.");
+    } finally { clearTimeout(stop); }
     let out = null;
     try { out = await res.json(); } catch (e) {}
     if (!out) throw new Error("Your sheet script didn't answer. Check the address and that access is set to Anyone.");
@@ -35,10 +48,10 @@
     return out;
   }
 
-  async function call(action, extra) {
+  async function call(action, extra, opts) {
     if (!signedIn()) { const e = new Error("Sign in first."); e.auth = true; throw e; }
     try {
-      return await post(sheetUrl(), Object.assign({ session: settings.session, action }, extra || {}));
+      return await post(sheetUrl(), Object.assign({ session: settings.session, action }, extra || {}), opts);
     } catch (e) {
       if (e.auth) forget(e.message);
       throw e;
@@ -66,81 +79,69 @@
     return settings.lastSync ? `Everything is synced. Last time: ${when(settings.lastSync)}.` : "Signed in.";
   }
 
-  /* ---------- what gets sent ---------- */
-  function snapshot() {
-    const days = Object.values(Store.all()).sort((a, b) => a.date < b.date ? -1 : 1);
-    const payload = { days, ideas: Ideas.get() };
-    HOOKS.syncParts.forEach(f => { try { Object.assign(payload, f()); } catch (e) {} });
-    return payload;
-  }
-  // A quick fingerprint of everything on this device, to know whether the screen needs redrawing.
-  function fingerprint() {
-    const s = JSON.stringify([Store.all(), Ideas.get(), HOOKS.syncParts.map(f => { try { return f(); } catch (e) { return null; } })]);
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0;
-    return s.length + ":" + h;
+  /* ---------- the one sync ---------- */
+  const flightsKind = () => (A.syncKinds && A.syncKinds.flights) || { items: () => [], merge: () => 0 };
+
+  // What this device sends: only what's in the outbox, or everything right after signing in.
+  function payload(sent, all) {
+    return {
+      days: Store.records(all ? null : Object.keys(sent.days)),
+      flights: flightsKind().items(all ? null : Object.keys(sent.flights)),
+      ideas: Ideas.items(all ? Ideas.ids() : Object.keys(sent.ideas))
+    };
   }
 
-  /* Merge rule: a day from the sheet wins only if it is newer; otherwise it just fills gaps. */
-  function mergeDays(list) {
-    const remote = A.cleanDays({ days: Object.fromEntries((Array.isArray(list) ? list : []).filter(r => r && typeof r.date === "string").map(r => [r.date, r])) });
-    if (!remote) return 0;
-    const local = Store.all(), out = {};
-    Object.keys(remote).forEach(k => {
-      const r = remote[k], l = local[k];
-      if (!l) out[k] = r;
-      else if ((r.updatedAt || "") > (l.updatedAt || "")) out[k] = Object.assign({}, l, r);
-      else {
-        const fill = {}; let any = false;
-        Object.keys(r).forEach(f => { if (l[f] == null && f !== "updatedAt") { fill[f] = r[f]; any = true; } });
-        if (any) out[k] = Object.assign({}, l, fill);
-      }
-    });
-    const n = Object.keys(out).length;
-    if (n) Store.merge(out);
-    return n;
-  }
-
-  /* ---------- the one sync: fetch the sheet, merge it in, then send this device's copy back if it changed ---------- */
+  // opts.full: ask the sheet for everything, not just what changed (Sync now does this).
+  // opts.keepalive: Tracker is going into the background, so let the request outlive the page.
   function sync(opts) {
     opts = opts || {};
     if (!signedIn()) return Promise.resolve(false);
-    if (running) { again = true; return running; }
+    // One at a time: a sync asked for while one is running happens right after it.
+    if (running) { again = again ? { full: again.full || opts.full, noMusic: again.noMusic && opts.noMusic } : { full: opts.full, noMusic: opts.noMusic }; return running; }
     clearTimeout(timer); timer = null;
+    lastTry = Date.now();
     running = (async () => {
       let ok = false;
-      const before = fingerprint();
       setState("busy");
       try {
-        pulling = true;
-        const out = await call("pull");
-        mergeDays(out.days);
-        Ideas.merge(out.ideas);
-        HOOKS.pullParts.forEach(f => { try { f(out); } catch (e) {} });
-        pulling = false;
-        lastPull = Date.now();
-        // Pushing only after a fresh pull means one device can never overwrite what another one added.
-        if (settings.dirty || opts.push) {
-          settings.dirty = false; saveSettings();
-          try { await call("sync", { payload: snapshot() }); }
-          catch (e) { settings.dirty = true; saveSettings(); throw e; }
-        }
+        const sent = Outbox.take(), all = !!settings.pushAll;
+        const body = Object.assign({ since: opts.full || all ? "" : (settings.since || "") }, payload(sent, all));
+        const small = JSON.stringify(body).length < 60000;
+        const out = await call("sync2", body, { keepalive: !!opts.keepalive && small });
+        if (!out.now) throw new Error("Your sheet script is an older version. Update it (see the setup guide), then sync again.");
+        merging = true;
+        try {
+          Store.mergeRemote(out.days);
+          Ideas.mergeRemote(out.ideas);
+          flightsKind().merge(out.flights);
+        } finally { merging = false; }
+        settings.since = out.now;
+        if (all) settings.pushAll = false;
+        Outbox.done(sent);
         settings.lastSync = new Date().toISOString(); saveSettings();
-        setState("ok"); ok = true;
+        fails = 0; ok = true;
+        setState(Outbox.size() ? "pending" : "ok");
       } catch (e) {
-        pulling = false;
+        merging = false; fails++;
         setState(signedIn() ? "err" : "ok", e.message || String(e));
       }
       // Music is a separate, sometimes slower, read of your Drive folder.
       if (ok && A.music && !opts.noMusic) { try { await A.music.check(); } catch (e) {} }
-      if (fingerprint() !== before) redraw();
       return ok;
     })();
+    const v0 = A.version();
     return running.then(ok => {
       running = null;
-      if (again) { again = false; return sync({ noMusic: true }); }
+      if (A.version() !== v0) redraw();
+      if (again) { const next = again; again = null; return sync(next); }
+      if (ok && Outbox.size()) schedule();
       return ok;
     });
+  }
+
+  function schedule() {
+    if (!running) setState("pending");
+    clearTimeout(timer); timer = setTimeout(() => sync({ noMusic: true }), 3000);
   }
 
   // Redraw the page with what just arrived, but never while you are typing in it.
@@ -216,13 +217,13 @@
       const out = await post(url, { action: "login", password: pw, device: deviceName() });
       if (!out.session) throw new Error("Your sheet script is an older version. Update it (see the setup guide) and try again.");
       settings.syncUrl = url; settings.session = out.session; settings.localOnly = false;
-      // Anything already on this device gets merged into the sheet on the first sync.
-      settings.dirty = true; saveSettings();
+      // Anything already on this device gets merged into the sheet on the first sync, and everything in the sheet comes here.
+      settings.pushAll = true; settings.since = ""; saveSettings();
       gateBusy = false;
       hideGate();
       setState("busy");
       toast("Signed in. Loading your data…");
-      const ok = await sync({ push: true });
+      const ok = await sync({});
       toast(ok ? "All your data is here" : "Signed in, but loading failed. It will try again.");
     } catch (e) {
       gateBusy = false;
@@ -247,38 +248,45 @@
     outArmed = "";
     toast("Saving your latest changes…");
     const ok = await sync({ noMusic: true });
-    if (!ok || settings.dirty) { toast("Couldn't reach your sheet, so you're still signed in. Try again when you're online."); return; }
+    if (!ok || Outbox.size()) { toast("Couldn't reach your sheet, so you're still signed in. Try again when you're online."); return; }
     try { await call(everywhere ? "logoutAll" : "logout"); } catch (e) {}
     quiet = true;
-    Store.clear(); Ideas.clear(); HOOKS.wipe.forEach(f => { try { f(); } catch (e) {} });
+    Store.clear(); Ideas.clear(); Outbox.clear(); HOOKS.wipe.forEach(f => { try { f(); } catch (e) {} });
     quiet = false;
-    settings.session = null; settings.dirty = false; settings.lastSync = null; saveSettings();
+    settings.session = null; settings.since = ""; settings.pushAll = false; settings.lastSync = null; saveSettings();
     setState("ok"); paint();
     showGate(everywhere ? "Signed out on every device. Your data is safe in your sheet." : "Signed out. Your data is safe in your sheet.");
   }
   EXTRA.actions["sign-out"] = () => signOut(false);
   EXTRA.actions["sign-out-all"] = () => signOut(true);
 
+  // Sync now asks for everything, which also picks up changes you made by hand in the sheet.
   EXTRA.actions["sync-now"] = async () => {
     if (!signedIn()) { showGate(""); return; }
-    const ok = await sync({ push: true });
+    const ok = await sync({ full: true, noMusic: false });
     toast(ok ? "Everything is synced" : `Couldn't sync: ${err}`);
   };
 
   /* ---------- automatic syncing ---------- */
   HOOKS.change.push(() => {
-    if (pulling || quiet || !signedIn()) return;
-    if (!settings.dirty) { settings.dirty = true; saveSettings(); }
-    setState("pending");
-    clearTimeout(timer); timer = setTimeout(() => sync({ noMusic: true }), 3000);
+    if (merging || quiet || !signedIn() || !Outbox.size()) return;
+    schedule();
   });
+  // "Delete everything" on this device: the sheet keeps it all, so load it again from scratch.
+  HOOKS.wipe.push(() => { if (!quiet) { settings.since = ""; saveSettings(); } });
   document.addEventListener("visibilitychange", () => {
     if (!signedIn()) return;
-    if (document.hidden) { if (timer) sync({ noMusic: true }); }
-    else if (Date.now() - lastPull > 30000) sync({});
+    if (document.hidden) { if (Outbox.size()) sync({ noMusic: true, keepalive: true }); }
+    else if (Date.now() - lastTry > 30000) sync({});
   });
   window.addEventListener("online", () => { if (signedIn()) sync({}); });
-  setInterval(() => { if (signedIn() && !document.hidden && Date.now() - lastPull > 5 * 60e3) sync({ noMusic: true }); }, 60e3);
+  // While Tracker is on screen: changes that couldn't be sent are tried again, waiting longer after each failure
+  // (up to 15 minutes), and otherwise it checks the sheet every 5 minutes.
+  setInterval(() => {
+    if (!signedIn() || document.hidden || running) return;
+    const wait = state === "err" ? Math.min(15 * 60e3, 30e3 * 2 ** Math.min(fails, 5)) : Outbox.size() ? 30e3 : 5 * 60e3;
+    if (Date.now() - lastTry > wait) sync({ noMusic: true });
+  }, 30e3);
 
   /* ---------- settings ---------- */
   EXTRA.settings.push(() => (outArmed = "", signedIn()) ? `
@@ -294,7 +302,7 @@
     <p class="note" style="margin-top:0" id="syncStatus">${esc(statusText())}</p>
     <button class="btn block" data-act="sign-in" style="margin-top:12px">Sign in</button>`);
 
-  A.sync = { sync, call, snapshot, ready: signedIn, signedIn };
+  A.sync = { sync, call, ready: signedIn, signedIn };
 
   function boot() {
     setState("ok");

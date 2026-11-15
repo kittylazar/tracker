@@ -29,14 +29,23 @@
       reason: REASONS.includes(f.reason) ? f.reason : "", seat: s(f.seat, 6).toUpperCase(), seatType: SEATS.includes(f.seatType) ? f.seatType : "",
       dep: time(f.dep), arr: time(f.arr), fromCity: s(f.fromCity, 40), toCity: s(f.toCity, 40),
       durationMin: num(f.durationMin, 1500), distanceKm: num(f.distanceKm, 20000), notes: s(f.notes, 200),
-      updatedAt: typeof f.updatedAt === "string" ? f.updatedAt : new Date().toISOString()
+      // A flight without a time (from an old file) counts as the oldest copy, so it never overwrites a real change.
+      updatedAt: typeof f.updatedAt === "string" && f.updatedAt ? f.updatedAt : "1970-01-01T00:00:00.000Z"
     };
     Object.keys(rec).forEach(k => { if (rec[k] === null || rec[k] === "") delete rec[k]; });
     return rec;
   }
   let F = [];
   try { F = (JSON.parse(LS.get(KEY) || "[]") || []).map(clean).filter(Boolean); } catch (e) { F = []; }
-  const persist = () => { const ok = LS.set(KEY, JSON.stringify(F)); A.changed(); return ok; };
+  // Flights you deleted, with when, so your other devices delete them too.
+  const GKEY = "stillday.flights.gone";
+  let G = {};
+  try { G = JSON.parse(LS.get(GKEY) || "{}") || {}; } catch (e) { G = {}; }
+  const persist = ids => {
+    const ok = LS.set(KEY, JSON.stringify(F)) && LS.set(GKEY, JSON.stringify(G));
+    if (ids && A.Outbox) A.Outbox.add("flights", ids);
+    A.changed(); return ok;
+  };
 
   /* ---------- maths ---------- */
   const rad = x => x * Math.PI / 180;
@@ -251,7 +260,6 @@
     });
     const tile = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
     const laps = km / EARTH_KM;
-    const count = (key, vals) => vals.map(v => [v, list.filter(f => f[key] === v).length]);
     const kmBy = (key, v) => C.filter(c => c.f[key] === v).reduce((n, c) => n + (c.km || 0), 0);
 
     // Flights over time: per year (all time) or per month (one year)
@@ -511,7 +519,8 @@
     if (!rec) return toast("Check the date and use three-letter airport codes.");
     const i = F.findIndex(x => x.id === rec.id);
     if (i >= 0) F[i] = rec; else F.push(rec);
-    const ok = persist();
+    delete G[rec.id];
+    const ok = persist([rec.id]);
     closeSheet(); paint(true);
     const c = calc(rec);
     toast(!ok ? "Couldn't save. Is browser storage blocked or full?" : c.km == null ? "Saved. Add a distance, those airports aren't in the list." : "Flight saved");
@@ -557,6 +566,7 @@
     Object.keys(COLS).forEach(k => { const i = head.findIndex(h => COLS[k].includes(h)); if (i >= 0) col[k] = i; });
     if (col.date == null || col.from == null || col.to == null) throw new Error("Couldn't find Date, From and To columns in that CSV.");
     let added = 0, updated = 0, skipped = 0;
+    const touched = [];
     rows.slice(1).forEach(r => {
       const g = k => col[k] == null ? "" : (r[col[k]] || "").trim();
       const a = aptOf(g("from")), b = aptOf(g("to")), date = g("date").slice(0, 10);
@@ -575,14 +585,14 @@
       const i = F.findIndex(x => x.date === date && x.from === a.code && x.to === b.code && (!x.number || !data.number || x.number === data.number.toUpperCase()));
       if (i >= 0) {
         const merged = clean(Object.assign({}, F[i], Object.fromEntries(Object.entries(data).filter(([, v]) => v != null && v !== "")), { id: F[i].id }));
-        if (merged) { F[i] = merged; updated++; }
+        if (merged) { F[i] = merged; updated++; touched.push(merged.id); }
       } else {
         const rec = clean(Object.assign(data, { id: `f-${date}-${a.code}${b.code}-${(data.number || data.dep || uid()).replace(/\W/g, "")}` }));
-        if (rec) { F.push(rec); added++; } else skipped++;
+        if (rec) { F.push(rec); delete G[rec.id]; added++; touched.push(rec.id); } else skipped++;
       }
     });
     if (!added && !updated) throw new Error("No flights could be read from that file.");
-    if (!persist()) throw new Error("Couldn't save. Browser storage may be full.");
+    if (!persist(touched)) throw new Error("Couldn't save. Browser storage may be full.");
     const unknown = new Set(); F.forEach(f => { if (f.from !== f.to) [f.from, f.to].forEach(c => { if (!AP.has(c) && f.distanceKm == null) unknown.add(c); }); });
     return { added, updated, skipped, unknown: [...unknown] };
   }
@@ -617,7 +627,8 @@
   EXTRA.actions["flight-reason"] = el => { st.reason = el.dataset.r; paint(true); };
   EXTRA.actions["flight-del"] = el => {
     if (st.armed !== el.dataset.id) { st.armed = el.dataset.id; el.textContent = "Tap again to delete"; return; }
-    st.armed = null; F = F.filter(x => x.id !== el.dataset.id); persist(); closeSheet(); paint(true); toast("Flight deleted");
+    const id = el.dataset.id;
+    st.armed = null; F = F.filter(x => x.id !== id); G[id] = new Date().toISOString(); persist([id]); closeSheet(); paint(true); toast("Flight deleted");
   };
 
   /* ---------- hooks ---------- */
@@ -627,19 +638,40 @@
     return `<section class="section"><span class="label">In the air today</span><div class="stack">${fs.map(f => flightCard(Object.assign({ f }, calc(f)))).join("")}</div></section>`;
   });
 
+  // Newest copy wins, one flight at a time, and a deletion counts as a change. Returns the ids that changed here.
   function mergeIn(list) {
-    let added = 0;
+    const byId = new Map(F.map((f, i) => [f.id, i])), hit = [];
+    let drop = false;
     (Array.isArray(list) ? list : []).forEach(raw => {
+      if (!raw || typeof raw.id !== "string" || !raw.id) return;
+      const i = byId.has(raw.id) ? byId.get(raw.id) : -1;
+      const mine = i >= 0 ? F[i].updatedAt || "" : G[raw.id] || "", up = typeof raw.updatedAt === "string" ? raw.updatedAt : "";
+      if (raw.deleted) {
+        if (up <= mine) return;
+        if (i >= 0) { F[i] = null; drop = true; }
+        G[raw.id] = up; hit.push(raw.id);
+        return;
+      }
       const r = clean(raw); if (!r) return;
-      const i = F.findIndex(x => x.id === r.id);
-      if (i < 0) { F.push(r); added++; } else if (r.updatedAt > F[i].updatedAt) { F[i] = r; added++; }
+      if (i < 0 && G[r.id] && G[r.id] >= r.updatedAt) return;
+      if (i >= 0 && !(r.updatedAt > mine)) return;
+      if (i >= 0) F[i] = r; else { byId.set(r.id, F.length); F.push(r); }
+      delete G[r.id]; hit.push(r.id);
     });
-    return added;
+    if (drop) F = F.filter(Boolean);
+    return hit;
   }
 
+  // For syncing: these flights (or all of them, with deletions) as the sheet keeps them, and flights from the sheet.
+  A.syncKinds.flights = {
+    items(ids) {
+      const list = ids || [...F.map(f => f.id), ...Object.keys(G)];
+      return list.map(id => { const f = F.find(x => x.id === id); return f || (G[id] ? { id, deleted: true, updatedAt: G[id] } : null); }).filter(Boolean);
+    },
+    merge(list) { const hit = mergeIn(list); if (hit.length) persist(); return hit.length; }
+  };
+
   HOOKS.exportParts.push(() => ({ flights: F }));
-  HOOKS.importParts.push(raw => { if (raw && Array.isArray(raw.flights) && mergeIn(raw.flights)) LS.set(KEY, JSON.stringify(F)); });
-  HOOKS.wipe.push(() => { F = []; LS.del(KEY); });
-  HOOKS.syncParts.push(() => ({ flights: F }));
-  HOOKS.pullParts.push(remote => { if (mergeIn(remote && remote.flights)) LS.set(KEY, JSON.stringify(F)); });
+  HOOKS.importParts.push(raw => { if (raw && Array.isArray(raw.flights)) { const hit = mergeIn(raw.flights.filter(f => f && !f.deleted)); if (hit.length) persist(hit); } });
+  HOOKS.wipe.push(() => { F = []; G = {}; LS.del(KEY); LS.del(GKEY); });
 })();

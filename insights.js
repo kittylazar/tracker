@@ -22,8 +22,17 @@
   }
   const rankRows = list => { const max = list.length ? list[0][1] : 1; return list.map(([k, v], i) => `<div class="rank"><span class="no">${i + 1}</span><div class="nm"><b>${esc(k)}</b><div class="bar2"><i style="width:${(v / max * 100).toFixed(1)}%;animation-delay:${i * 40}ms"></i></div></div><span class="val">${v} day${v === 1 ? "" : "s"}</span></div>`).join(""); };
 
-  /* ---------- one row per day, with everything known about it ---------- */
+  /* ---------- one row per day, with everything known about it ----------
+     Built once and kept until something changes (or the day does), so tapping a year or a square is quick. */
+  let memo = null;
   function build() {
+    const key = `${A.version ? A.version() : Math.random()}|${today()}`;
+    if (memo && memo.key === key) return memo.D;
+    const D = buildRows();
+    memo = { key, D };
+    return D;
+  }
+  function buildRows() {
     const t = today(), all = Store.all(), M = A.music && A.music.get ? A.music.get() : null, FL = A.Flights || null;
     const flights = FL ? FL.all().filter(f => f.date <= t) : [], trips = FL ? FL.trips() : [];
     const bodyKeys = Object.keys(all).sort();
@@ -66,9 +75,10 @@
     { k: "Away", name: "Away on a trip", get: r => r.trip ? 1 : 0, f: v => v >= .5 ? "yes" : "no", bin: "days away on a trip" }
   ];
   const SAME = [["Flight", "Away"], ["Music", "Late"]];
-  function pairOf(R, a, b) {
+  // withPts: also the dots for a scatter plot (only for the pair on screen, since naming every day takes time).
+  function pairOf(R, a, b, withPts) {
     const xs = [], ys = [], pts = [];
-    R.forEach(r => { const x = a.get(r), y = b.get(r); if (x != null && y != null) { xs.push(x); ys.push(y); pts.push({ x, y, t: fmt(r.d, { day: "numeric", month: "short", year: "numeric" }) }); } });
+    R.forEach(r => { const x = a.get(r), y = b.get(r); if (x != null && y != null) { xs.push(x); ys.push(y); if (withPts) pts.push({ x, y, t: fmt(r.d, { day: "numeric", month: "short", year: "numeric" }) }); } });
     return { r: xs.length >= 15 ? X.pearson(xs, ys) : null, n: xs.length, pts };
   }
 
@@ -197,12 +207,14 @@
     const vars = VARS.filter(v => { const xs = R.map(v.get).filter(x => x != null); return xs.length >= 15 && X.stdev(xs) > 0; });
     let matrix = "", findings = "";
     if (vars.length >= 3) {
-      const cells = vars.map(b => vars.map(a => a === b ? null : pairOf(R, a, b)));
+      // A pair is the same either way round, so each one is worked out once and mirrored.
+      const cells = vars.map(() => vars.map(() => null));
+      vars.forEach((b, j) => vars.forEach((a, i) => { if (i < j) cells[j][i] = cells[i][j] = pairOf(R, a, b); }));
       const list = [];
       vars.forEach((b, j) => vars.forEach((a, i) => { const c = cells[j][i]; if (i < j && c && c.r != null && !SAME.some(s => s.includes(a.k) && s.includes(b.k)) && !(a.bin && b.bin)) list.push({ a, b, r: c.r, n: c.n, i, j }); }));
       list.sort((p, q) => Math.abs(q.r) - Math.abs(p.r));
       const sel = st.pair && vars[st.pair[0]] && vars[st.pair[1]] && st.pair[0] !== st.pair[1] ? st.pair : list.length ? [list[0].i, list[0].j] : null;
-      const sp = sel ? pairOf(R, vars[sel[0]], vars[sel[1]]) : null;
+      const sp = sel ? pairOf(R, vars[sel[0]], vars[sel[1]], true) : null;
       matrix = card("What moves together", "Every pair of daily numbers. Strong colour means they rise together; the second colour means one rises as the other falls. Tap a square to see the days behind it.",
         X.grid(vars.map(v => v.k), vars.map(v => v.k), cells.map(row => row.map(c => c ? c.r : null)), { left: 34, ch: 20, diverging: true, max: .6, show: true, fmt: v => v.toFixed(2).replace("0.", "."), label: "Correlation between daily numbers",
           tip: (r, c, v) => r === c ? vars[r].name || vars[r].k : `${vars[c].name || vars[c].k} and ${vars[r].name || vars[r].k}: ${v == null ? "not enough days with both" : `${X.strength(v)} (r = ${v.toFixed(2)}, ${cells[r][c].n} days)`}`,
