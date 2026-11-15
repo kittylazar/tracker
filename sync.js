@@ -118,7 +118,7 @@
 
   EXTRA.settings.push(() => `
     <h3>Google Sheets</h3>
-    <p class="note" style="margin-top:0">Keeps a copy of everything (journal, body numbers, ideas, flights, music summary) in a Google Sheet you own. Setup steps are in the <b>stillday-setup</b> folder.</p>
+    <p class="note" style="margin-top:0">Keeps a copy of everything (journal, body numbers, ideas, flights, music summary) in a Google Sheet you own. Setup steps are in the <b>tracker-setup</b> folder. Update the script there to get bedtimes and the sleep and workout Shortcuts.</p>
     <label style="display:block;margin-top:12px"><span class="label">Web app address</span><input class="inp" id="syncUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(settings.syncUrl || "")}"></label>
     <label style="display:block;margin-top:12px"><span class="label">Secret word (the same one you put in the script)</span><input class="inp" id="syncToken" type="password" autocomplete="off" value="${esc(settings.syncToken || "")}"></label>
     <div class="row" style="margin-top:14px"><span>Sync automatically</span><label class="switch"><input type="checkbox" id="syncAuto" ${settings.syncAuto === false ? "" : "checked"} aria-label="Sync automatically"><span></span></label></div>

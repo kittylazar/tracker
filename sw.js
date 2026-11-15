@@ -1,6 +1,6 @@
 // Tracker service worker.
 // Network first, so updates show up straight away; the cache is only the offline fallback.
-const CACHE = "stillday-v4";
+const CACHE = "stillday-v5";
 const SHELL = ["./", "index.html", "config.js", "airports.js", "music.js", "flights.js", "sync.js", "manifest.webmanifest", "icon-192.png"];
 
 self.addEventListener("install", e => {

@@ -224,6 +224,26 @@ textarea.field { font: 24px/1.32 var(--serif); min-height: 104px; overflow: hidd
 .tile .k { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .tile .v { font: 650 20px/1.2 var(--display); letter-spacing: -.02em; margin-top: 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tile .v.none { color: var(--muted); font-weight: 500; font-family: var(--sans); font-size: 16px; }
+.tile .s { font-size: 11px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sleep-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; padding: 12px 12px 12px 16px; }
+.sleep-card.on { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface) 75%); border-color: color-mix(in srgb, var(--accent) 25%, var(--line)); }
+.sc-tx { display: grid; gap: 2px; min-width: 0; }
+.sc-tx b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sc-tx .sub { font-size: 13px; }
+.sc-act { display: flex; gap: 6px; flex: none; }
+.nights { padding: 10px 12px 8px; }
+.nt-axis, .nt-row { display: grid; grid-template-columns: 54px 1fr 58px; align-items: center; gap: 8px; }
+.nt-axis { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.nt-axis div { position: relative; height: 12px; }
+.nt-axis div span { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.nt-row { width: 100%; padding: 5px 0; text-align: left; border-radius: 8px; }
+.nt-row:hover { background: var(--surface2); }
+.nt-row small { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.nt-row small:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.nt-trk { position: relative; height: 10px; border-radius: 5px; background: var(--surface2); }
+.nt-trk i { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: var(--accent); opacity: .85; transform-origin: left; animation: growx .7s var(--ease) both; }
+.nt-trk i.half { opacity: .35; }
+.nt-trk b { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--line-hi); }
 .memory { overflow: hidden; }
 .memory::before { content: "\201C"; position: absolute; right: 16px; top: 14px; font: 84px/.6 var(--serif); color: color-mix(in srgb, var(--accent) 24%, transparent); pointer-events: none; }
 
@@ -646,8 +666,11 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
      days in this browser; a hosted version can swap in another implementation
      with the same methods. */
   const HEALTH = ["sleepMin", "steps", "exerciseMin", "distanceKm", "activeKcal", "standH"];
+  // Bedtime and wake-up as "HH:MM". A night is kept on the day it started: in bed at 01:30 on Saturday is Friday's night.
+  const TIMES = ["bedAt", "wakeAt"];
+  const isClock = v => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   const hasLine = r => !!(r && (r.line || "").trim());
-  const hasBody = r => !!r && (HEALTH.some(k => r[k] != null) || !!(r.workouts && r.workouts.length));
+  const hasBody = r => !!r && (HEALTH.some(k => r[k] != null) || TIMES.some(k => r[k]) || !!(r.workouts && r.workouts.length));
   const isBlank = r => !hasLine(r) && !(r.newThing || "").trim() && !r.mood && !hasBody(r);
 
   /* Workouts, as Apple Health / Fitness names them, folded into a short list of types. */
@@ -673,6 +696,8 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
       if (k !== undefined) o.kcal = Math.round(k);
       if (km !== undefined) o.km = km;
       if (typeof w.start === "string" && /^\d{2}:\d{2}$/.test(w.start)) o.start = w.start;
+      // Where it came from: "health" (the morning Health Shortcut) or "shortcut" (logged with a workout Shortcut).
+      if (w.src === "health" || w.src === "shortcut") o.src = w.src;
       return o.min || o.kcal || o.km ? o : null;
     }).filter(Boolean);
     return out.length ? out : undefined;
@@ -791,8 +816,51 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
   const fmtSleep = m => m == null ? null : `${Math.floor(m / 60)}h ${pad(Math.round(m % 60))}m`;
   const fmtNum = n => n == null ? null : Number(n).toLocaleString("en-GB");
 
+  /* ================= sleep clock =================
+     Clock times are measured in minutes after 18:00, so a night reads left to right across midnight. */
+  const clockMin = s => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+  const eveMin = s => (clockMin(s) - 1080 + 1440) % 1440;
+  const fromEve = m => { const x = (Math.round(m) + 1080) % 1440; return `${pad(Math.floor(x / 60))}:${pad(x % 60)}`; };
+  const nightLen = (bed, wake) => { const d = (clockMin(wake) - clockMin(bed) + 1440) % 1440; return d > 0 && d <= 1200 ? d : null; };
+  const hhmm = dt => `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  const nightOfBed = dt => ymd(new Date(dt.getTime() - 12 * 36e5));   // before noon counts as the night before
+  const nightOfWake = dt => ymd(new Date(dt.getTime() - 18 * 36e5));  // waking before 18:00 ends the night before
+
+  // "Going to bed" and "I'm awake" taps. The open night lives in this browser until you wake up.
+  const Sleep = {
+    KEY: "stillday.sleep",
+    get() { try { return JSON.parse(LS.get(this.KEY) || "{}") || {}; } catch (e) { return {}; } },
+    set(s) { LS.set(this.KEY, JSON.stringify(s)); },
+    pending() { const p = this.get().pending; return p && Date.now() - p.at >= 0 && Date.now() - p.at <= 20 * 36e5 ? p : null; },
+    bed(dt) {
+      const s = this.get(), at = dt.getTime(), last = s.last;
+      // Back in bed within 90 minutes of getting up: the same night carries on.
+      if (last && at - last.at >= 0 && at - last.at < 90 * 6e4) s.pending = { at, night: last.night, firstBed: last.bed || hhmm(new Date(at)), prevMin: last.min || 0 };
+      else {
+        s.pending = { at, night: nightOfBed(dt), firstBed: hhmm(dt), prevMin: 0 };
+        Store.saveDay(s.pending.night, { bedAt: s.pending.firstBed });
+      }
+      this.set(s);
+      return s.pending;
+    },
+    wake(dt) {
+      const s = this.get(), at = dt.getTime(), p = this.pending(), wake = hhmm(dt);
+      let night, bed, min = null;
+      if (p && at > p.at) { night = p.night; bed = p.firstBed; min = p.prevMin + Math.round((at - p.at) / 6e4); }
+      else { night = nightOfWake(dt); bed = (Store.getDay(night) || {}).bedAt; if (bed) min = nightLen(bed, wake); }
+      delete s.pending; s.last = { night, at, min, bed }; this.set(s);
+      const patch = { wakeAt: wake }; if (bed) patch.bedAt = bed; if (min) patch.sleepMin = Math.min(1440, min);
+      Store.saveDay(night, patch);
+      return { night, bed, wake, min };
+    },
+    cancel() {
+      const s = this.get(), p = s.pending; delete s.pending; this.set(s);
+      if (p && !p.prevMin) { const r = Store.getDay(p.night) || {}; if (r.bedAt === p.firstBed && !r.wakeAt) Store.saveDay(p.night, { bedAt: null }); }
+    }
+  };
+
   const MOODS = ["Heavy", "Low", "Okay", "Good", "Bright"];
-  const doneList = r => [["Line", hasLine(r)], ["New", !!(r.newThing || "").trim()], ["Mood", !!r.mood], ["Body", HEALTH.some(k => r[k] != null)]];
+  const doneList = r => [["Line", hasLine(r)], ["New", !!(r.newThing || "").trim()], ["Mood", !!r.mood], ["Body", HEALTH.some(k => r[k] != null) || TIMES.some(k => r[k])]];
   function updateDone() {
     const el = $("#done"); if (!el) return;
     doneList(Store.getDay(S.date) || {}).forEach(([, on], i) => { if (el.children[i]) el.children[i].classList.toggle("on", on); });
@@ -867,11 +935,26 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     return ok;
   }
 
+  /* The sleep buttons on Today: Going to bed in the evening, I'm awake in the morning. No watch needed. */
+  function sleepCard() {
+    const p = Sleep.pending(), h = new Date().getHours();
+    const card = (title, sub, btns) => `<div class="card sleep-card ${p ? "on" : ""}"><div class="sc-tx"><b>${title}</b><span class="sub">${sub}</span></div><div class="sc-act">${btns}</div></div>`;
+    if (p) {
+      const mins = p.prevMin + Math.max(0, Math.round((Date.now() - p.at) / 6e4));
+      return card(`Asleep since ${esc(p.firstBed)}`, `${fmtSleep(mins)} so far`, `<button class="chip" data-act="sleep-cancel">Cancel</button><button class="chip accent" data-act="sleep-wake">I'm awake</button>`);
+    }
+    const morning = h >= 3 && h < 14, last = Store.getDay(addDays(today(), -1)) || {};
+    if (morning) return last.wakeAt ? "" : card("Good morning", last.bedAt ? `In bed from ${esc(last.bedAt)}. Tap when you're up.` : "Tap when you're up, then add when you went to bed.", `<button class="chip accent" data-act="sleep-wake">I'm awake</button>`);
+    return card("Off to bed?", "Tap when the light goes off, and I'm awake in the morning.", `<button class="chip accent" data-act="sleep-bed">Going to bed</button>`);
+  }
+
   /* ================= views ================= */
   function viewToday() {
     const d = S.date, t = today(), isToday = d === t, r = Store.getDay(d) || {};
     const y = parse(d).getFullYear();
-    const tile = (k, v) => `<button class="tile" data-act="health"><div class="k">${k}</div><div class="v ${v ? "" : "none"}">${v || "Add"}</div></button>`;
+    const tile = (k, v, date, small) => `<button class="tile" data-act="${date ? "health-day" : "health"}" ${date ? `data-date="${date}"` : ""}><div class="k">${k}</div><div class="v ${v ? "" : "none"}">${v || "Add"}</div>${small ? `<div class="s">${esc(small)}</div>` : ""}</button>`;
+    const prev = addDays(d, -1), pr = Store.getDay(prev) || {};
+    const prSmall = pr.bedAt && pr.wakeAt ? `${pr.bedAt}–${pr.wakeAt}` : pr.bedAt ? `bed ${pr.bedAt}` : pr.wakeAt ? `up ${pr.wakeAt}` : "";
     const back = [[addMonths(d, -12), "A year ago"], [addMonths(d, -1), "A month ago"], [addDays(d, -7), "A week ago"]]
       .map(([x, l]) => [x, l, Store.getDay(x)]).find(x => hasLine(x[2]));
     const doy = dayOfYear(d), diy = daysInYear(y), pct = doy / diy * 100, sk = isToday ? streak() : 0;
@@ -921,8 +1004,9 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     </section>
     <section class="section">
       <span class="label">Body</span>
+      ${isToday ? sleepCard() : ""}
       <div class="tiles">
-        ${tile("Sleep", fmtSleep(r.sleepMin))}
+        ${tile("Last night", fmtSleep(pr.sleepMin != null ? pr.sleepMin : pr.bedAt && pr.wakeAt ? nightLen(pr.bedAt, pr.wakeAt) : null) || (prSmall ? "–" : null), prev, prSmall)}
         ${tile("Steps", fmtNum(r.steps))}
         ${tile("Movement", r.exerciseMin != null ? `${fmtNum(r.exerciseMin)} min` : null)}
       </div>
@@ -1182,9 +1266,53 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
       const m = avgOf(sl), sd = Math.sqrt(avgOf(sl.map(x => (x - m) ** 2)));
       items.push(`Over the last 30 days your sleep length varied by about <b>${Math.round(sd)} minutes</b> from night to night.`);
     }
+    const wk = Store.listRange(addDays(t, -30), t).filter(r => r.wakeAt).map(r => eveMin(r.wakeAt));
+    if (wk.length >= 5) {
+      const m = avgOf(wk), sd = Math.sqrt(avgOf(wk.map(x => (x - m) ** 2)));
+      items.push(`You usually wake up around <b>${fromEve(m)}</b>, give or take <b>${Math.round(sd)} minutes</b>${sd <= 30 ? ". That's a steady rhythm." : "."}`);
+    }
     return `<section class="section"><h2>What your numbers say</h2>
       ${items.length ? items.map(i => `<p class="insight">${i}</p>`).join("") : `<p class="sub" style="margin-top:8px">Log mood plus sleep, steps or workouts on at least 3 days either way to see patterns.</p>`}
       <p class="note">These are patterns in your own days, not proof of cause. Goals are in Settings.</p></section>`;
+  }
+
+  // Bedtime and wake-up: usual times, how steady they are, and one bar per night on an 18:00 to 14:00 line.
+  function sleepTimes(W) {
+    const nights = W.days.map(d => [d, Store.getDay(d) || {}]).filter(([, r]) => r.bedAt || r.wakeAt);
+    const head = `<div class="row"><h2>Bedtime</h2><button class="chip" data-act="health-day" data-date="${nightOfWake(new Date()) <= W.to ? nightOfWake(new Date()) : W.to}">+ Log a night</button></div>`;
+    if (!nights.length) return `<section class="section">${head}<p class="sub" style="margin-top:8px">No bedtimes in this period. Tap <b>Going to bed</b> and <b>I'm awake</b> on Today, let your iPhone log them (charger or Sleep Focus Shortcuts, no watch needed), or type them in.</p></section>`;
+    const st = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+    const sd = xs => { const m = avgOf(xs); return Math.sqrt(avgOf(xs.map(x => (x - m) ** 2))); };
+    const beds = nights.filter(([, r]) => r.bedAt).map(([, r]) => eveMin(r.bedAt)), wakes = nights.filter(([, r]) => r.wakeAt).map(([, r]) => eveMin(r.wakeAt));
+    const lens = nights.map(([, r]) => r.sleepMin != null ? r.sleepMin : r.bedAt && r.wakeAt ? nightLen(r.bedAt, r.wakeAt) : null).filter(v => v != null);
+    const SPAN = 1200, pos = m => (Math.min(SPAN, Math.max(0, m)) / SPAN * 100).toFixed(2);
+    const ticks = [[0, "18"], [180, "21"], [360, "00"], [540, "03"], [720, "06"], [900, "09"], [1080, "12"]];
+    const rows = nights.slice().reverse().slice(0, 14).map(([d, r], i) => {
+      const b = r.bedAt ? eveMin(r.bedAt) : null, w = r.wakeAt ? eveMin(r.wakeAt) : null;
+      // Only one end known: draw a faint hour so the night still shows up.
+      const x1 = b != null ? b : w - 60, x2 = w != null && (b == null || w > b) ? w : x1 + 60;
+      const len = r.sleepMin != null ? r.sleepMin : b != null && w != null ? nightLen(r.bedAt, r.wakeAt) : null;
+      return `<button class="nt-row" data-act="health-day" data-date="${d}" title="${esc(`${fmt(d, { weekday: "long", day: "numeric", month: "short" })} night: ${r.bedAt || "?"} to ${r.wakeAt || "?"}`)}">
+        <small>${esc(fmt(d, { weekday: "short", day: "numeric" }))}</small>
+        <span class="nt-trk">${ticks.slice(1).map(([m]) => `<b style="left:${pos(m)}%"></b>`).join("")}<i class="${b == null || w == null ? "half" : ""}" style="left:${pos(x1)}%;width:${(pos(x2) - pos(x1)).toFixed(2)}%;animation-delay:${i * 30}ms"></i></span>
+        <small>${len ? fmtSleep(len).replace(" ", "") : "–"}</small>
+      </button>`;
+    }).join("");
+    return `<section class="section">${head}
+      <div class="stat-grid" style="margin-top:14px">
+        ${st(beds.length ? fromEve(avgOf(beds)) : "–", "usual bedtime")}
+        ${st(wakes.length ? fromEve(avgOf(wakes)) : "–", "usual wake-up")}
+        ${st(lens.length ? fmtSleep(Math.round(avgOf(lens))) : "–", "average night")}
+        ${beds.length >= 3 ? st(`±${Math.round(sd(beds))} min`, "bedtime spread") : ""}
+        ${wakes.length >= 3 ? st(`±${Math.round(sd(wakes))} min`, "wake-up spread") : ""}
+        ${st(`${nights.length}/${W.n}`, "nights with times")}
+      </div>
+      <div class="card nights" style="margin-top:12px">
+        <div class="nt-axis"><span></span><div>${ticks.map(([m, l]) => `<span style="left:${pos(m)}%">${l}</span>`).join("")}</div><span></span></div>
+        ${rows}
+      </div>
+      ${nights.length > 14 ? `<p class="note">Showing the latest 14 nights; the numbers above cover all ${nights.length}.</p>` : ""}
+    </section>`;
   }
 
   // Workouts in the window: totals, by type, minutes over time and a list.
@@ -1192,7 +1320,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     const list = [];
     W.days.forEach(d => { const r = Store.getDay(d); (r && r.workouts || []).forEach((w, i) => list.push({ d, i, w })); });
     const head = `<div class="row"><h2>Activities</h2><button class="chip" data-act="wo-add" data-date="${W.to}">+ Log workout</button></div>`;
-    if (!list.length) return `<section class="section">${head}<p class="sub" style="margin-top:8px">No workouts in this period. They arrive from the Fitness and Health apps through the iPhone Shortcut, or you can log one yourself.</p></section>`;
+    if (!list.length) return `<section class="section">${head}<p class="sub" style="margin-top:8px">No workouts in this period. They arrive from the Fitness and Health apps through the iPhone Shortcut, from the Start workout and End workout Shortcuts, or you can log one yourself.</p></section>`;
     const st = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
     const mins = list.reduce((n, x) => n + (x.w.min || 0), 0), kcal = list.reduce((n, x) => n + (x.w.kcal || 0), 0), km = list.reduce((n, x) => n + (x.w.km || 0), 0);
     const activeDays = new Set(list.map(x => x.d)).size;
@@ -1229,7 +1357,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
         const r = Store.getDay(d) || {}, cell = (v, l) => `<span class="${v == null ? "no" : ""}"><b>${v == null ? "–" : v}</b><small>${l}</small></span>`;
         return `<button data-act="health-day" data-date="${d}" class="${hasBody(r) ? "" : "empty"}">
           <span class="dl-d"><b>${esc(fmt(d, { weekday: "short" }))}</b><small>${esc(fmt(d, { day: "numeric", month: "short" }))}</small></span>
-          ${cell(r.sleepMin != null ? fmtSleep(r.sleepMin).replace(" ", "") : null, "sleep")}
+          ${cell((x => x != null ? fmtSleep(x).replace(" ", "") : null)(r.sleepMin != null ? r.sleepMin : r.bedAt && r.wakeAt ? nightLen(r.bedAt, r.wakeAt) : null), r.bedAt ? `sleep · ${r.bedAt}` : "sleep")}
           ${cell(r.steps != null ? (r.steps >= 10000 ? `${(Math.round(r.steps / 100) / 10).toLocaleString("en-GB")}k` : fmtNum(r.steps)) : null, "steps")}
           ${cell(r.exerciseMin != null ? `${r.exerciseMin}m` : null, "move")}
           <span class="dl-w">${(r.workouts || []).slice(0, 3).map(w => woIcon(w.type)).join("") || (hasBody(r) ? "" : '<em>Add</em>')}</span>
@@ -1287,10 +1415,11 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     </section>
     ${bodyStats(W)}
     <section class="section stack">${cards}</section>
+    ${sleepTimes(W)}
     ${activities(W)}
     ${dayLog(W)}
     ${bodyInsights()}
-    <p class="note" style="margin-top:16px">Numbers can come from Apple Health through an iPhone Shortcut (see the tracker-setup folder), or you can type them in for any day.</p>`;
+    <p class="note" style="margin-top:16px">Numbers can come from Apple Health through an iPhone Shortcut. Bedtimes and workouts can also come from Shortcuts with no watch at all (see the tracker-setup folder). You can type anything in for any day, too.</p>`;
   }
 
   const IDEAS = [
@@ -1494,8 +1623,8 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
   sheet.addEventListener("click", e => { if (e.target === sheet) sheet.close(); });
   sheet.addEventListener("close", () => { if (catchDirty) { catchDirty = false; paint(true); } });
 
-  function healthSheet(d) {
-    const r = Store.getDay(d) || {}, v = x => x == null ? "" : x, t = today();
+  function healthSheet(d, pre) {
+    const r = Store.getDay(d) || {}, v = x => x == null ? "" : x, t = today(), wakeV = (pre && pre.wake) || r.wakeAt || "";
     openSheet(`
       <div class="sheet-head"><h2>Body numbers</h2><button class="icon-btn" data-act="close" aria-label="Close">${ICON.close}</button></div>
       <div class="day-pick">
@@ -1505,11 +1634,16 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
       </div>
       <p class="sub" style="text-align:center">${esc(fmt(d, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}${hasBody(r) ? "" : " · nothing logged yet"}</p>
       <form id="healthForm" data-date="${d}" style="margin-top:14px">
-        <span class="label">Sleep</span>
+        <span class="label">Sleep · the night of ${esc(fmt(d, { weekday: "short", day: "numeric", month: "short" }))} into ${esc(fmt(addDays(d, 1), { weekday: "short" }))}</span>
         <div class="grid2">
+          <label><span class="label">Went to bed</span><input class="inp" name="bed" type="time" value="${esc(r.bedAt || "")}"></label>
+          <label><span class="label">Woke up</span><input class="inp" name="wake" type="time" value="${esc(wakeV)}"></label>
+        </div>
+        <div class="grid2" style="margin-top:10px">
           <input class="inp" name="sh" type="number" inputmode="numeric" min="0" max="24" placeholder="Hours" aria-label="Sleep hours" value="${r.sleepMin != null ? Math.floor(r.sleepMin / 60) : ""}">
           <input class="inp" name="sm" type="number" inputmode="numeric" min="0" max="59" placeholder="Minutes" aria-label="Sleep minutes" value="${r.sleepMin != null ? r.sleepMin % 60 : ""}">
         </div>
+        <p class="note" id="sleepCalc" style="margin-top:6px">Times fill in the length. Change the hours if you know you slept less than you were in bed.</p>
         <div class="grid2" style="margin-top:14px">
           <label><span class="label">Steps</span><input class="inp" name="steps" type="number" inputmode="numeric" min="0" max="200000" value="${v(r.steps)}"></label>
           <label><span class="label">Exercise (min)</span><input class="inp" name="ex" type="number" inputmode="numeric" min="0" max="1440" value="${v(r.exerciseMin)}"></label>
@@ -1604,6 +1738,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
       if ([1, 2, 3, 4, 5].includes(r.mood)) rec.mood = r.mood;
       const h = { sleepMin: num(r.sleepMin, 1440), steps: num(r.steps, 200000), exerciseMin: num(r.exerciseMin, 1440), distanceKm: num(r.distanceKm, 500), activeKcal: num(r.activeKcal, 20000), standH: num(r.standH, 24) };
       HEALTH.forEach(x => { if (h[x] !== undefined) rec[x] = h[x]; });
+      TIMES.forEach(x => { if (isClock(r[x])) rec[x] = r[x]; });
       const wo = cleanWorkouts(r.workouts); if (wo) rec.workouts = wo;
       rec.updatedAt = typeof r.updatedAt === "string" ? r.updatedAt : new Date().toISOString();
       if (!isBlank(rec)) out[k] = rec;
@@ -1677,6 +1812,18 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
       case "health-today": healthSheet(today()); break;
       case "health-day": if (el.dataset.date <= today()) healthSheet(el.dataset.date); break;
       case "health-shift": if (el.dataset.date <= today()) healthSheet(el.dataset.date); break;
+      case "sleep-bed": {
+        const p = Sleep.bed(new Date()); paint(true);
+        toast(p.prevMin ? `Back to bed. Still counting from ${p.firstBed}.` : `Good night. In bed at ${p.firstBed}.`); break;
+      }
+      case "sleep-wake": {
+        const now = new Date();
+        // No Going to bed tap last night: ask for the bedtime instead of guessing.
+        if (!Sleep.pending()) { healthSheet(nightOfWake(now), { wake: hhmm(now) }); const b = $('#healthForm [name="bed"]'); if (b && !b.value) b.focus(); break; }
+        const x = Sleep.wake(now); paint(true);
+        toast(x.min ? `Slept ${fmtSleep(x.min)} · ${x.bed} to ${x.wake}` : `Up at ${x.wake}`); break;
+      }
+      case "sleep-cancel": Sleep.cancel(); paint(true); toast("Bedtime cleared"); break;
       case "wo-add": flush(); woSheet(el.dataset.date || today(), null); break;
       case "wo-edit": flush(); woSheet(el.dataset.date, Number(el.dataset.i)); break;
       case "wo-del": {
@@ -1735,9 +1882,11 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     if (e.target.id !== "healthForm") return;
     e.preventDefault();
     const f = new FormData(e.target), n = k => { const v = String(f.get(k) || "").trim(); return v === "" || !isFinite(Number(v)) || Number(v) < 0 ? null : Number(v); };
-    const sh = n("sh"), sm = n("sm");
+    const sh = n("sh"), sm = n("sm"), clock = k => { const v = String(f.get(k) || "").trim().slice(0, 5); return isClock(v) ? v : null; };
+    const bedAt = clock("bed"), wakeAt = clock("wake"), fromTimes = bedAt && wakeAt ? nightLen(bedAt, wakeAt) : null;
     const ok = Store.saveHealth(e.target.dataset.date, {
-      sleepMin: sh == null && sm == null ? null : Math.min(1440, Math.round((sh || 0) * 60 + (sm || 0))),
+      bedAt, wakeAt,
+      sleepMin: sh == null && sm == null ? fromTimes : Math.min(1440, Math.round((sh || 0) * 60 + (sm || 0))),
       steps: n("steps") == null ? null : Math.round(n("steps")),
       exerciseMin: n("ex") == null ? null : Math.round(n("ex")),
       activeKcal: n("kcal") == null ? null : Math.round(n("kcal")),
@@ -1746,6 +1895,15 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     });
     sheet.close(); paint(true);
     toast(ok ? `Saved for ${fmt(e.target.dataset.date, { day: "numeric", month: "short" })}` : "Couldn't save. Is browser storage blocked or full?");
+  });
+  // Typing a bedtime and wake-up fills in the hours and minutes.
+  document.addEventListener("input", e => {
+    const form = e.target.form;
+    if (!form || form.id !== "healthForm" || !["bed", "wake"].includes(e.target.name)) return;
+    const b = form.elements.bed.value.slice(0, 5), w = form.elements.wake.value.slice(0, 5), len = isClock(b) && isClock(w) ? nightLen(b, w) : null;
+    if (!len) return;
+    form.elements.sh.value = Math.floor(len / 60); form.elements.sm.value = len % 60;
+    const note = $("#sleepCalc"); if (note) note.textContent = `${fmtSleep(len)} in bed. Lower it if you lay awake for a while.`;
   });
   document.addEventListener("change", async e => {
     const extraChange = EXTRA.changes[e.target.id];
