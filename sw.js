@@ -1,7 +1,7 @@
 // Tracker service worker.
 // Network first, so updates show up straight away; the cache is only the offline fallback.
-const CACHE = "stillday-v7";
-const SHELL = ["./", "index.html", "config.js", "airports.js", "music.js", "flights.js", "sync.js", "manifest.webmanifest", "icon-192.png"];
+const CACHE = "stillday-v8";
+const SHELL = ["./", "index.html", "config.js", "airports.js", "charts.js", "music.js", "flights.js", "insights.js", "sync.js", "manifest.webmanifest", "icon-192.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

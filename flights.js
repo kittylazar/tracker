@@ -52,6 +52,43 @@
     if (min == null && km != null) { min = Math.round(km / 820 * 60 + 30); est = true; }
     return { a, b, km, min, est };
   }
+  // Compass bearing at take-off, in degrees from north.
+  function bearing(a, b) {
+    const p1 = rad(a.lat), p2 = rad(b.lat), dl = rad(b.lon - a.lon);
+    return (Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)) * 180 / Math.PI + 360) % 360;
+  }
+  // Home is the airport you pass through most.
+  function homeCode() {
+    const m = new Map(); let best = null;
+    F.forEach(f => [f.from, f.to].forEach(c => m.set(c, (m.get(c) || 0) + 1)));
+    m.forEach((n, c) => { if (!best || n > m.get(best)) best = c; });
+    return best;
+  }
+  /* Flights paired into trips: away from home until a flight lands back there.
+     `open` marks a trip whose way home wasn't logged, so its length is a guess. */
+  function trips() {
+    const t = today(), home = homeCode(), out = [];
+    if (!home) return out;
+    const gap = (a, b) => Math.round((A.parse(b) - A.parse(a)) / 864e5);
+    const fl = F.filter(f => f.date <= t && f.from !== f.to).sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : (x.dep || "") < (y.dep || "") ? -1 : 1);
+    let cur = null;
+    const close = (end, open) => {
+      cur.end = end; cur.open = !!open; cur.days = gap(cur.start, end) + 1;
+      cur.km = cur.flights.reduce((n, f) => n + (calc(f).km || 0), 0);
+      const h = AP.get(home);
+      // The destination is the stop furthest from home.
+      cur.dest = cur.flights.map(f => f.to).filter(c => c !== home).reduce((b, c) => { const p = AP.get(c); if (!b) return c; const q = AP.get(b); return h && p && q && haversine(h, p) > haversine(h, q) ? c : b; }, null) || cur.flights[0].to;
+      out.push(cur); cur = null;
+    };
+    fl.forEach(f => {
+      if (cur && gap(cur.last, f.date) > 120) close(cur.last, true);
+      if (!cur) { if (f.to === home) return; cur = { start: f.date, last: f.date, flights: [] }; }
+      cur.flights.push(f); cur.last = f.date;
+      if (f.to === home) close(f.date);
+    });
+    if (cur) { if (gap(cur.last, t) <= 45) close(t, true); else close(cur.last, true); }
+    return out;
+  }
   const hm = m => `${Math.floor(m / 60)}h ${pad(m % 60)}m`;
   const flag = cc => /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0))) : "";
   const place = (code, f) => { const p = AP.get(code); return p ? p.city : (f && (code === f.from ? f.fromCity : f.toCity)) || code; };
@@ -263,6 +300,82 @@
     const seatTyped = list.filter(f => f.seatType).length;
     const classed = list.filter(f => f.cls).length;
 
+    /* ----- more chart types (charts.js) ----- */
+    const X = A.Charts, asc = C.slice().reverse(), kmF = v => `${fmtNum(Math.round(v))} km`;
+    const spanYears = (() => { const ys = [...new Set(list.map(f => f.date.slice(0, 4)))].sort(), o = []; for (let k = +ys[0]; k <= +ys[ys.length - 1]; k++) o.push(String(k)); return o; })();
+    // Periods for the stacked charts: years for all time, months for one year.
+    const P = y === "all"
+      ? { keys: spanYears, of: f => f.date.slice(0, 4), labels: spanYears.map(k => "’" + k.slice(2)), tips: spanYears, name: "year" }
+      : { keys: MN.map((_, i) => pad(i + 1)), of: f => f.date.slice(5, 7), labels: "JFMAMJJASOND".split(""), tips: MN, name: "month" };
+    const stackBy = (groups, pick) => groups.map((g, i) => ({ name: g, c: g === "Other" || g === "Not set" ? 5 : i, vals: P.keys.map(k => list.filter(f => P.of(f) === k && pick(f) === g).length) }));
+
+    // Distance adding up over time, month by month
+    let cumCard = "";
+    if (km && asc.length > 1) {
+      const mk = []; let [yy, mm] = (y === "all" ? asc[0].f.date.slice(0, 7) : `${y}-01`).split("-").map(Number);
+      const endM = y === "all" ? asc[asc.length - 1].f.date.slice(0, 7) : (`${y}-12` < t.slice(0, 7) ? `${y}-12` : t.slice(0, 7));
+      while (`${yy}-${pad(mm)}` <= endM && mk.length < 1500) { mk.push(`${yy}-${pad(mm)}`); if (++mm > 12) { mm = 1; yy++; } }
+      const perM = new Map(); asc.forEach(c => perM.set(c.f.date.slice(0, 7), (perM.get(c.f.date.slice(0, 7)) || 0) + (c.km || 0)));
+      let run = 0; const cum = mk.map(k => (run += perM.get(k) || 0));
+      const lapsN = Math.floor(km / EARTH_KM), hl = lapsN >= 1 && lapsN <= 4 ? Array.from({ length: lapsN }, (_, i) => ({ v: (i + 1) * EARTH_KM, label: `${i + 1}× round the Earth` })) : [];
+      if (mk.length > 1) cumCard = card("Distance adding up", X.line([{ name: "Total distance", vals: cum, area: true }], { labels: mk.map(k => fmt(k + "-01", { month: "short", year: "2-digit" })), fmt: v => v >= 10000 ? `${Math.round(v / 1000)}k` : fmtNum(Math.round(v)), zero: true, hlines: hl, legend: false }), `Every flight stacked on the last: <b>${kmF(km)}</b> so far.`);
+    }
+
+    // Seasons: which months you fly, year by year
+    const seasonCard = y === "all" && spanYears.length > 1 ? card("Your flying seasons", X.grid(spanYears, "JFMAMJJASOND".split(""), spanYears.map(k => MN.map((_, m) => list.filter(f => f.date.startsWith(`${k}-${pad(m + 1)}`)).length)), { left: 30, ch: 14, show: true, fmt: v => v ? String(v) : "", tip: (r, c, v) => `${MN[c]} ${spanYears[r]}: ${plural(v || 0, "flight")}` }), "Flights in each month of each year.") : "";
+
+    // How far and how long
+    const kms = withKm.map(c => c.km), bands = [["Short (under 1,500 km)", kms.filter(v => v < 1500).length], ["Medium (1,500 to 4,000 km)", kms.filter(v => v >= 1500 && v < 4000).length], ["Long (over 4,000 km)", kms.filter(v => v >= 4000).length]];
+    const distCard = kms.length >= 5 ? card("How far you fly", X.histogram(kms, { step: Math.max(...kms) > 6000 ? 1000 : 500, lo: 0, fmt: v => fmtNum(Math.round(v)), unit: "flights", marks: [{ v: X.median(kms), label: `median ${kmF(X.median(kms))}` }] }) + `<div class="legend" style="margin-top:12px">${bands.map((b, i) => `<span style="--op:${OPS[i]}">${b[0]} <b>${b[1]}</b></span>`).join("")}</div>`, "Number of flights by distance, in km.") : "";
+    const timed = C.filter(c => c.min != null && !c.est), durs = timed.map(c => c.min);
+    const durCard = durs.length >= 5 ? card("How long you're in the air", X.histogram(durs, { step: Math.max(...durs) > 600 ? 60 : 30, lo: 0, fmt: v => hm(Math.round(v)).replace(" 00m", ""), unit: "flights", marks: [{ v: X.median(durs), label: `median ${hm(Math.round(X.median(durs)))}` }] }), `Based on ${plural(durs.length, "flight")} with a logged time in the air.`) : "";
+    const speedPts = timed.filter(c => c.km > 0 && c.min > 0).map(c => ({ x: c.km, y: c.min, t: `${c.f.from} → ${c.f.to}, ${fmt(c.f.date, { day: "numeric", month: "short", year: "numeric" })}` }));
+    const avgSpeed = speedPts.length ? Math.round(speedPts.reduce((n, p) => n + p.x, 0) / (speedPts.reduce((n, p) => n + p.y, 0) / 60)) : 0;
+    const speedCard = speedPts.length >= 5 ? card("Distance against time in the air", X.scatter(speedPts, { min: 5, unit: "flights", xFmt: v => fmtNum(Math.round(v)), yFmt: v => hm(Math.round(v)).replace(" 00m", ""), xLabel: "Distance in km", yLabel: "Time in the air" }), `Gate to gate you average <b>${fmtNum(avgSpeed)} km/h</b>. Dots above the line were slow for their distance.`) : "";
+
+    // Clock and compass
+    const depH = Array(24).fill(0); withDep.forEach(f => depH[+f.dep.slice(0, 2)]++);
+    const peakDep = depH.indexOf(Math.max(...depH));
+    const comp = Array(8).fill(0), CN = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"], CNAME = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+    C.forEach(c => { if (c.a && c.b && c.a !== c.b) comp[Math.round(bearing(c.a, c.b) / 45) % 8]++; });
+    const compN = comp.reduce((a, b) => a + b, 0), peakC = comp.indexOf(Math.max(...comp));
+    const compCard = compN >= 3 ? card("Which way you head", X.radial(comp, { centered: true, labels: CN, tip: (i, v) => `Heading ${CNAME[i]}: ${plural(v, "flight")}`, center: CN[peakC], sub: "most often", label: "Flights by compass direction" }), `The direction at take-off. Most of your flights head <b>${CNAME[peakC]}</b>.`) : "";
+
+    // Who you fly with, and why, over time
+    const topAir = [...airlines].sort((a, b) => b[1] - a[1]).slice(0, 4).map(r => r[0]);
+    const airGroups = airlines.size > 4 ? topAir.concat(["Other"]) : topAir;
+    const airCard = airlines.size > 1 && P.keys.length > 1 ? card(`Airlines by ${P.name}`, X.stacked(P.labels, stackBy(airGroups, f => !f.airline ? null : topAir.includes(f.airline) ? f.airline : "Other"), { tips: P.tips, fmt: v => plural(v, "flight"), ticks: 12 })) : "";
+    const reasonsUsed = REASONS.filter(r => list.some(f => f.reason === r));
+    const reasonCard = hasReason && rs === "all" && reasonsUsed.length > 1 && P.keys.length > 1 ? card(`Leisure or business by ${P.name}`, X.stacked(P.labels, stackBy(reasonsUsed, f => f.reason), { tips: P.tips, fmt: v => plural(v, "flight"), ticks: 12 })) : "";
+
+    // The map filling in: airports and countries seen so far
+    let grewCard = "";
+    if (y === "all" && rs === "all" && spanYears.length > 1) {
+      const sa = new Set(), sc = new Set(), aLine = [], cLine = [];
+      spanYears.forEach(k => { asc.forEach(c => { if (c.f.date.startsWith(k)) [c.f.from, c.f.to].forEach(code => { sa.add(code); const p = AP.get(code); if (p) sc.add(p.cc); }); }); aLine.push(sa.size); cLine.push(sc.size); });
+      grewCard = card("Your map filling in", X.line([{ name: "Airports", vals: aLine, c: 0, dots: true }, { name: "Countries", vals: cLine, c: 1, dots: true }], { labels: spanYears, zero: true, ticks: 6 }), "Different airports and countries you had been to by the end of each year.");
+    }
+
+    // Trips: flights paired into time away from home
+    const home = homeCode(), allTrips = trips().filter(tr => y === "all" || tr.start.startsWith(y));
+    const closed = allTrips.filter(tr => !tr.open);
+    let tripCard = "";
+    if (rs === "all" && closed.length >= 2) {
+      const lens = closed.map(tr => tr.days), longest = closed.reduce((b, tr) => tr.days > b.days ? tr : b);
+      const awayBy = P.keys.map(k => closed.filter(tr => (y === "all" ? tr.start.slice(0, 4) : tr.start.slice(5, 7)) === k).reduce((n, tr) => n + tr.days, 0));
+      tripCard = `<section class="section"><h2>Trips</h2>
+        <p class="sub" style="margin-top:6px">Flights paired into trips: away from ${esc(place(home))} (${esc(home)}, your most-used airport) until a flight lands back there.${allTrips.length > closed.length ? ` ${plural(allTrips.length - closed.length, "trip")} without a logged way home ${allTrips.length - closed.length === 1 ? "is" : "are"} left out.` : ""}</p>
+        <div class="stat-grid" style="margin-top:14px">
+          ${tile(closed.length, "trips")}
+          ${tile(fmtNum(lens.reduce((a, b) => a + b, 0)), "days away")}
+          ${tile(`${Math.round(X.median(lens))}`, "days, typical trip")}
+        </div>
+        <div class="stack" style="margin-top:12px">
+          <div class="card"><span class="label" style="margin:0">How long your trips last</span><div class="sub" style="margin-top:2px">Longest: <b>${longest.days} days</b> to ${esc(place(longest.dest))}, from ${esc(fmt(longest.start, { day: "numeric", month: "short", year: "numeric" }))}.</div>${X.histogram(lens, { min: 2, step: Math.max(...lens) > 30 ? 7 : Math.max(...lens) > 12 ? 2 : 1, lo: 0, fmt: v => `${Math.round(v)}d`, unit: "trips", marks: [{ v: X.median(lens), label: `median ${Math.round(X.median(lens))} days` }] })}</div>
+          ${P.keys.length > 1 ? `<div class="card"><span class="label" style="margin:0">Days away per ${P.name}</span>${barsHtml(awayBy, Math.max(...awayBy, 1), P.labels.map((l, i) => P.labels.length > 12 ? (i % 3 === 0 ? l : "") : l), awayBy.map((v, i) => `${P.tips[i]}: ${v} days away`), P.keys.length > 7 ? "m12" : "")}</div>` : ""}
+        </div></section>`;
+    }
+
     return hero + upcomingHtml + filters + `
     <section class="section">
       <div class="stat-grid">
@@ -276,15 +389,24 @@
       ${km ? `<p class="sub" style="margin-top:12px">${laps >= 0.1 ? `${(Math.round(laps * 10) / 10).toLocaleString("en-GB")}× around the Earth` : "A fraction of a lap around the Earth"}${km / MOON_KM >= 0.05 ? `, ${Math.round(km / MOON_KM * 100)}% of the way to the Moon` : ""}. That's ${(Math.round(min / 1440 * 10) / 10).toLocaleString("en-GB")} days spent in the air.</p>` : ""}
     </section>
     <section class="section"><div class="card" style="padding:10px">${mapSvg(list)}</div></section>
-    ${hasReason ? card("Leisure or business", split(REASONS.map(r => [r, list.filter(f => f.reason === r).length, kmBy("reason", r) ? `${fmtNum(kmBy("reason", r))} km` : ""]).concat([["Not set", list.filter(f => !f.reason).length]]))) : ""}
+    ${cumCard}
+    ${hasReason ? card("Leisure or business", X.donut(REASONS.map(r => [r, list.filter(f => f.reason === r).length, kmBy("reason", r) ? `${fmtNum(kmBy("reason", r))} km` : ""]).concat([["Not set", list.filter(f => !f.reason).length]]), { center: list.length, sub: "flights", fmt: v => plural(v, "flight"), label: "Flights by reason" })) : ""}
+    ${reasonCard}
     ${timeBars}
-    ${seatTyped ? card("Where you sit", split(SEATS.map(s => [s, list.filter(f => f.seatType === s).length])), `Based on ${plural(seatTyped, "flight")} with a seat type.`) : ""}
-    ${classed ? card("Cabin class", split(CLASSES.map(c => [c, list.filter(f => f.cls === c).length]))) : ""}
+    ${seasonCard}
+    ${seatTyped ? card("Where you sit", X.donut(SEATS.map(s => [s, list.filter(f => f.seatType === s).length]), { keep: true, center: seatTyped, sub: "flights", fmt: v => plural(v, "flight"), label: "Flights by seat type" }), `Based on ${plural(seatTyped, "flight")} with a seat type.`) : ""}
+    ${classed ? card("Cabin class", X.donut(CLASSES.map(c => [c, list.filter(f => f.cls === c).length]), { center: classed, sub: "flights", fmt: v => plural(v, "flight"), label: "Flights by cabin class" })) : ""}
     ${card("When you fly",
       `${barsHtml(wd, Math.max(...wd, 1), ["M", "T", "W", "T", "F", "S", "S"], wd.map((v, i) => `${WD[i]}: ${v}`))}
-       ${barsHtml(mo, Math.max(...mo, 1), "JFMAMJJASOND".split(""), mo.map((v, i) => `${MN[i]}: ${v}`), "m12")}
-       ${withDep.length ? `<span class="label" style="margin:16px 0 0">Departure time</span>${split(tod)}` : ""}`,
+       ${barsHtml(mo, Math.max(...mo, 1), "JFMAMJJASOND".split(""), mo.map((v, i) => `${MN[i]}: ${v}`), "m12")}`,
       `Most often on <b>${WD[wd.indexOf(Math.max(...wd))]}</b> and in <b>${MN[mo.indexOf(Math.max(...mo))]}</b>.`)}
+    ${withDep.length >= 3 ? card("Departure clock", X.radial(depH, { labels: depH.map((_, i) => i % 6 === 0 ? pad(i) : ""), tip: (i, v) => `${pad(i)}:00 to ${pad(i)}:59: ${plural(v, "departure")}`, center: `${pad(peakDep)}:00`, sub: "peak", label: "Departures by hour" }) + split(tod), `Local departure times of ${plural(withDep.length, "flight")}.`) : ""}
+    ${compCard}
+    ${distCard}
+    ${durCard}
+    ${speedCard}
+    ${airCard}
+    ${tripCard}
     <section class="section"><div class="card">
       <span class="label" style="margin:0">Records</span>
       <div class="kvs">
@@ -303,6 +425,7 @@
       <div class="kvs">${kv("North", pl(north))}${kv("South", pl(south))}${kv("East", pl(east))}${kv("West", pl(west))}</div>
     </div></section>` : ""}
     ${newApts}
+    ${grewCard}
     <section class="section">
       <h2>Favourites</h2>
       <div class="card" style="margin-top:12px;padding-top:6px;padding-bottom:6px">
@@ -322,6 +445,8 @@
   }
 
   VIEWS.flights = viewFlights;
+  // For the Insights tab.
+  A.Flights = { all: () => F, calc, AP, trips, homeCode, place, flag, hm };
 
   /* ---------- add / edit ---------- */
   const seg = (name, opts, cur) => `<div class="seg wrap" role="radiogroup">${opts.map(o => `<label class="segopt"><input type="radio" name="${name}" value="${esc(o)}" ${cur === o ? "checked" : ""}><span>${esc(o)}</span></label>`).join("")}</div>`;

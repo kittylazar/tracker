@@ -550,6 +550,84 @@ a { color: var(--accent-ink); }
 .kv:first-child { border-top: 0; }
 .kv span { color: var(--muted); flex: none; }
 .kv b { font-weight: 560; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+/* ---------- chart kit (charts.js) ----------
+   Series colours: the accent first, then the theme pastels pulled towards the text colour so they read on a card in every look. */
+:root {
+  --c1: var(--accent);
+  --c2: color-mix(in srgb, var(--t3) 58%, var(--text));
+  --c3: color-mix(in srgb, var(--t5) 60%, var(--text));
+  --c4: color-mix(in srgb, var(--t4) 58%, var(--text));
+  --c5: color-mix(in srgb, var(--t1) 62%, var(--text));
+  --c6: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.cx { width: 100%; height: auto; display: block; margin-top: 12px; overflow: visible; }
+.cx-t { font: 500 7.5px var(--sans); fill: var(--muted); }
+.cx-t.cx-ax { font-weight: 600; }
+.cx-t.cx-hl { font-size: 6.5px; paint-order: stroke; stroke: var(--solid); stroke-width: 2.5px; stroke-linejoin: round; }
+.cx-t.cx-nm { fill: var(--text); }
+.cx-t.cx-cell { fill: var(--text); font-size: 6.5px; pointer-events: none; }
+.cx-big { font: 800 17px var(--display); fill: var(--text); }
+.cx-big.sm { font-size: 15px; }
+.cx-grid { stroke: var(--line); stroke-width: .6; fill: none; }
+.cx-goal { stroke: var(--muted); stroke-width: .8; stroke-dasharray: 3 3; fill: none; }
+.cx-mark { stroke: var(--text); stroke-width: 1; fill: none; }
+.cx-line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.cx-line.dash { stroke-dasharray: 4 3; }
+.cx-hit { fill: transparent; }
+.cx-hit:hover { fill: color-mix(in srgb, var(--text) 7%, transparent); }
+.cx-dot { fill: var(--c1); fill-opacity: .5; }
+.cx-dot:hover { fill-opacity: 1; }
+.cx-trend { stroke: var(--text); stroke-width: 1.2; stroke-dasharray: 5 3; fill: none; opacity: .75; }
+.cx-bar { fill: var(--c1); fill-opacity: .45; transform-origin: bottom; transform-box: fill-box; animation: grow .7s var(--ease) both; }
+.cx-bar.peak { fill-opacity: 1; }
+.cx-ring { fill: none; stroke: var(--line); stroke-width: .8; }
+.cx-rad { stroke: var(--c1); stroke-opacity: .5; stroke-linecap: round; fill: none; }
+.cx-rad.peak { stroke-opacity: 1; }
+.cx-radial { max-width: 280px; margin-left: auto; margin-right: auto; }
+.cx-sl { stroke: var(--c6); stroke-width: 1.3; fill: none; }
+.cx-sl.up { stroke: var(--c1); }
+.cx-sl.down { stroke: var(--c3); }
+.cx-sd { fill: var(--muted); }
+.cx-none { margin-top: 10px; }
+.cx rect.tap, .heat rect.tap { cursor: pointer; }
+.cx rect.tap:hover { stroke: var(--text); stroke-width: .6; }
+.cx rect.sel { stroke: var(--text); stroke-width: 1.2; }
+.cx-cap { margin-top: 6px; font-size: 13px; }
+.cx-leg span::before, .cx-dl span::before { background: var(--lc); opacity: 1; }
+.cx-donut { display: flex; align-items: center; gap: 18px; margin-top: 12px; }
+.cx-donut svg { width: 120px; flex: none; }
+.cx-dl { display: grid; gap: 7px; font-size: 13px; min-width: 0; flex: 1; }
+.cx-dl span { display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 8px; color: var(--muted); }
+.cx-dl span::before { content: ""; width: 9px; height: 9px; border-radius: 3px; }
+.cx-dl em { font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-dl b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cx-dl small { grid-column: 2 / 4; font-size: 12px; margin-top: -4px; }
+.cx-range, .cx-pair { display: grid; gap: 9px; margin-top: 14px; }
+.cx-rr { display: grid; grid-template-columns: 34px 1fr 62px; align-items: center; gap: 10px; font-size: 13px; }
+.cx-pr { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto; align-items: center; gap: 4px 10px; font-size: 13px; }
+.cx-rr small, .cx-pr small { color: var(--muted); font-size: 12px; }
+.cx-rr b, .cx-pr b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cx-pr em { grid-column: 2 / 4; font-style: normal; font-size: 11px; color: var(--muted); margin-top: -4px; }
+.cx-rr .trk { position: relative; height: 14px; }
+.cx-rr .trk i { position: absolute; top: 50%; transform: translateY(-50%); }
+.cx-rr .trk .w { height: 2px; background: color-mix(in srgb, var(--c1) 45%, transparent); border-radius: 1px; }
+.cx-rr .trk .q { height: 8px; background: color-mix(in srgb, var(--c1) 55%, transparent); border-radius: 4px; }
+.cx-rr .trk .m { width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: var(--c1); box-shadow: 0 0 0 2px var(--solid); }
+.cx-rr .trk .g { width: 1px; height: 14px; border-left: 1px dashed var(--muted); }
+.cx-pr .trk { height: 10px; border-radius: 5px; background: var(--surface2); overflow: hidden; }
+.cx-pr .trk i { display: block; height: 100%; border-radius: 5px; transform-origin: left; animation: growx .7s var(--ease) both; }
+.cx-spark { width: 60px; height: 16px; display: block; margin-top: 4px; }
+.cx-spark path { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+.cx-reign { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin-top: 12px; background: var(--surface2); }
+.cx-reign i { display: block; height: 100%; }
+.cx-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cx-two > div { min-width: 0; }
+h3.cx-h { font: 650 15px var(--sans); margin: 18px 0 0; }
+@media (max-width: 420px) { .cx-two { grid-template-columns: 1fr; } }
+/* Chart text is sized in chart units, so it shrinks with the card; on a phone make it larger to stay readable. */
+@media (max-width: 600px) { .cx-t { font-size: 9.5px; } .cx-t.cx-cell { font-size: 7.5px; } .cx-t.cx-hl { font-size: 8px; } }
+@media (prefers-reduced-motion: reduce) { .cx-bar, .cx-pr .trk i { animation: none; } }
 .ftags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ftags span { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
 .ftags span:first-child { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
@@ -571,7 +649,7 @@ a { color: var(--accent-ink); }
 /* ---------- tab bar ---------- */
 .tabs {
   position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%);
-  width: min(470px, calc(100% - 24px)); display: grid; grid-template-columns: repeat(5, 1fr);
+  width: min(520px, calc(100% - 16px)); display: grid; grid-template-columns: repeat(6, 1fr);
   background: color-mix(in srgb, var(--solid) 70%, transparent); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
   border: 1px solid var(--line); border-radius: 26px; padding: 6px; box-shadow: var(--shadow), inset 0 1px 0 0 var(--line-hi); z-index: 5;
   view-transition-name: tabs;
@@ -584,7 +662,7 @@ a { color: var(--accent-ink); }
 }
 .tabs:not(.ready) .ind { transition: none; }
 .tabs button {
-  position: relative; z-index: 1; display: grid; justify-items: center; gap: 3px; padding: 8px 0 6px; border-radius: 20px; font-size: 11px; font-weight: 500; color: var(--muted);
+  position: relative; z-index: 1; display: grid; justify-items: center; gap: 3px; padding: 8px 0 6px; border-radius: 20px; font-size: 10.5px; font-weight: 500; color: var(--muted);
   transition: color .3s, transform .25s var(--spring);
 }
 .tabs button:hover { color: var(--text); }
@@ -1039,12 +1117,13 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
   const S = { tab: "today", lastJournal: "today", date: today(), year: new Date().getFullYear(), range: "week", off: 0, dows: [], from: null, to: null, lastToday: today(), ideaTopic: "all" };
 
   /* Five sections in the bar; Today, Rewind and Year share the Journal section. */
-  const NAV = { journal: ["today", "rewind", "year"], body: ["body"], music: ["music"], flights: ["flights"], ideas: ["ideas"] };
+  const NAV = { journal: ["today", "rewind", "year"], body: ["body"], music: ["music"], flights: ["flights"], insights: ["insights"], ideas: ["ideas"] };
   const NAV_META = [
     ["journal", "Journal", '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'],
     ["body", "Body", '<path d="M3 12h4l3-8 4 16 3-8h4"/>'],
     ["music", "Music", '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'],
     ["flights", "Flights", '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>'],
+    ["insights", "Insights", '<circle cx="6" cy="17" r="2.2"/><circle cx="12" cy="8" r="2.2"/><circle cx="18" cy="13" r="2.2"/><path d="M7.3 15.2l3.4-5.4M13.8 9.5l2.6 2.2"/>'],
     ["ideas", "Ideas", '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>']
   ];
   const groupOf = t => Object.keys(NAV).find(g => NAV[g].includes(t)) || "journal";
@@ -1673,6 +1752,106 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       }).join("")}</div></section>`;
   }
 
+  /* More chart types for the Body page, drawn with charts.js: trends, distributions, weekday spread, mood and streaks. */
+  const sleepOf = r => r.sleepMin != null ? r.sleepMin : r.bedAt && r.wakeAt ? nightLen(r.bedAt, r.wakeAt) : null;
+  const xcard = (title, sub, body) => `<div class="card"><span class="label" style="margin:0">${title}</span>${sub ? `<div class="sub" style="margin-top:2px">${sub}</div>` : ""}${body}</div>`;
+  function bodyCharts(W) {
+    const X = window.Stillday.Charts; if (!X) return "";
+    const rec = d => Store.getDay(d) || {};
+    const goalS = settings.sleepGoalH * 60, days = W.days, t = today();
+    const hrs = v => `${(v / 60).toFixed(1)}h`, sh = d => fmt(d, { day: "numeric", month: "short" });
+    const daily = days.length <= 370, win = daily ? 7 : 3, per = daily ? "day" : W.unit;
+    const pts = daily ? days.map(d => ({ label: sh(d), days: [d] })) : W.buckets.map(b => ({ label: bucketLabel(b, W.unit).replace("Week of ", ""), days: b.days }));
+    const seriesOf = get => pts.map(p => avgOf(p.days.map(get).filter(v => v != null)));
+    const labels = pts.map(p => p.label), out = [];
+
+    // 1. Trend lines with a moving average and the goal
+    const trend = (vals, name, f, goal) => X.line([
+      { name: daily ? name : `${name}, ${W.unit} average`, vals, c: 0, faint: true, w: 1 },
+      { name: `${win}-${per} average`, vals: X.movingAvg(vals, win), c: 0, w: 2.2 }
+    ], { labels, fmt: f, hlines: [{ v: goal, label: "goal" }] });
+    const sl = seriesOf(d => sleepOf(rec(d))), stp = seriesOf(d => dayVal(d, "steps"));
+    if (X.nums(sl).length >= 5) out.push(xcard("Sleep trend", `The thin line is each ${daily ? "night" : W.unit}, the thick line smooths it over ${win} ${per}s. Dashed: your ${settings.sleepGoalH}h goal.`, trend(sl, "Sleep", hrs, goalS)));
+    if (X.nums(stp).length >= 5) out.push(xcard("Steps trend", `Dashed: your goal of ${fmtNum(settings.stepGoal)} steps.`, trend(stp, "Steps", v => fmtNum(Math.round(v)), settings.stepGoal)));
+
+    // 2. Sleep balance and distribution
+    const nights = days.map(d => [d, sleepOf(rec(d))]).filter(x => x[1] != null);
+    if (nights.length >= 5) {
+      let acc = 0; const cum = nights.map(x => (acc += x[1] - goalS));
+      out.push(xcard("Sleep balance", `Running total against your ${settings.sleepGoalH}h goal: <b>${acc >= 0 ? "+" : "−"}${fmtSleep(Math.abs(acc))}</b> over ${nights.length} nights. Below the dashed line is sleep owed.`,
+        X.line([{ name: "Balance", vals: cum, c: acc >= 0 ? 0 : 2, area: true }], { labels: nights.map(x => sh(x[0])), fmt: v => `${v < 0 ? "−" : ""}${Math.round(Math.abs(v) / 60)}h`, base: 0, hlines: [{ v: 0 }] })));
+      const vs = nights.map(x => x[1]), md = X.median(vs);
+      out.push(xcard("How long you sleep", `Half of your nights fall between <b>${fmtSleep(Math.round(X.quantile(vs, .25)))}</b> and <b>${fmtSleep(Math.round(X.quantile(vs, .75)))}</b>.`,
+        X.histogram(vs, { step: 30, fmt: v => fmtSleep(Math.round(v)).replace(" 00m", ""), unit: "nights", marks: [{ v: md, label: `median ${fmtSleep(Math.round(md))}` }, { v: goalS, label: "goal" }] })));
+    }
+
+    // 3. Bedtime: does it cost sleep, and is it drifting?
+    const bedPts = days.map(d => { const r = rec(d), s = sleepOf(r); return r.bedAt && s != null ? { x: eveMin(r.bedAt), y: s, t: sh(d) } : null; }).filter(Boolean);
+    if (bedPts.length >= 10) out.push(xcard("Bedtime against sleep length", "Each dot is a night. A line sloping down means later bedtimes cost you sleep.", X.scatter(bedPts, { xFmt: fromEve, yFmt: hrs, xLabel: "Bedtime", yLabel: "Sleep" })));
+    const bed = seriesOf(d => rec(d).bedAt ? eveMin(rec(d).bedAt) : null), wake = seriesOf(d => rec(d).wakeAt ? eveMin(rec(d).wakeAt) : null);
+    if (X.nums(bed).length + X.nums(wake).length >= 8) out.push(xcard("Bedtime and wake-up drift", `${win}-${per} average. Higher on the chart is later.`,
+      X.line([{ name: "Wake-up", vals: X.movingAvg(wake, win), c: 0 }, { name: "Bedtime", vals: X.movingAvg(bed, win), c: 1 }], { labels, fmt: fromEve })));
+
+    // 4. Spread by weekday
+    const byDow = get => DOW_NAME.map((l, i) => ({ label: l, vals: days.filter(d => dowOf(d) === i).map(get).filter(v => v != null) }));
+    if (nights.length >= 7) out.push(xcard("Sleep by weekday", "", X.range(byDow(d => sleepOf(rec(d))), { fmt: v => fmtSleep(Math.round(v)).replace(" ", ""), goal: goalS })));
+    if (days.filter(d => dayVal(d, "steps") != null).length >= 7) out.push(xcard("Steps by weekday", "", X.range(byDow(d => dayVal(d, "steps")), { fmt: v => fmtNum(Math.round(v)), goal: settings.stepGoal, lo: 0 })));
+
+    // 5. Does one thing follow another?
+    const stepPts = days.map(d => { const s = sleepOf(rec(addDays(d, -1))), v = dayVal(d, "steps"); return s != null && v != null ? { x: s, y: v, t: sh(d) } : null; }).filter(Boolean);
+    if (stepPts.length >= 10) out.push(xcard("Steps after a night's sleep", "Sleep the night before against steps the next day.", X.scatter(stepPts, { xFmt: hrs, yFmt: v => fmtNum(Math.round(v)), xLabel: "Sleep the night before", yLabel: "Steps" })));
+    const woN = days.filter(d => sleepOf(rec(d)) != null && (rec(d).workouts || []).length).map(d => sleepOf(rec(d)));
+    const restN = days.filter(d => sleepOf(rec(d)) != null && !(rec(d).workouts || []).length).map(d => sleepOf(rec(d)));
+    if (woN.length >= 3 && restN.length >= 3) out.push(xcard("Sleep after a workout", "The night that follows a workout day against the night after a rest day.",
+      X.paired([{ label: "Workout days", v: X.mean(woN), n: woN.length }, { label: "Rest days", v: X.mean(restN), n: restN.length, c: 1 }], { fmt: v => fmtSleep(Math.round(v)), unit: "nights" })));
+
+    // 6. Mood
+    const y = W.to.slice(0, 4), moodDays = days.filter(d => rec(d).mood);
+    if (Object.keys(Store.all()).some(k => k.startsWith(y) && Store.getDay(k).mood)) out.push(xcard(`Mood through ${y}`, "Darker squares were brighter days. Tap a day to open it.",
+      X.calendar(y, k => { const m = (Store.getDay(k) || {}).mood; return m ? { o: m / 5, t: MOODS[m - 1] } : null; }, { attrs: k => k <= t ? `data-act="open-day" data-date="${k}" class="tap"` : "", label: `Mood by day, ${y}` })));
+    if (moodDays.length >= 7) {
+      const mv = DOW_NAME.map((_, i) => avgOf(moodDays.filter(d => dowOf(d) === i).map(d => rec(d).mood)));
+      out.push(xcard("Mood by weekday", "Average mood, out of 5.", barsHtml(mv, 5, DOW, mv.map((v, i) => `${DOW_NAME[i]}: ${v == null ? "no mood" : v.toFixed(1) + " of 5"}`))));
+    }
+
+    // 7. Goal streaks, across everything you've logged
+    const keys = Object.keys(Store.all()).sort();
+    const streaks = ok => {
+      let best = 0, run = 0;
+      if (keys.length) for (const d of daysFrom(keys[0], addDays(t, -1))) { if (ok(rec(d))) { run++; best = Math.max(best, run); } else run = 0; }
+      if (ok(rec(t))) { run++; best = Math.max(best, run); }
+      return { best, cur: run };
+    };
+    const s1 = streaks(r => r.steps != null && r.steps >= settings.stepGoal), s2 = streaks(r => sleepOf(r) != null && sleepOf(r) >= goalS);
+    const last30 = daysFrom(addDays(t, -29), t);
+    const tile = (v, l, sp) => `<div class="stat"><b>${v}</b><span>${l}</span>${sp || ""}</div>`;
+    const streakHtml = s1.best || s2.best ? `<div class="stat-grid" style="margin-top:14px">
+      ${tile(s1.cur, "days in a row over your step goal", X.spark(last30.map(d => dayVal(d, "steps"))))}
+      ${tile(s1.best, "longest step-goal streak")}
+      ${tile(s2.cur, `nights in a row with ${settings.sleepGoalH}h+`, X.spark(last30.map(d => sleepOf(rec(d)))))}
+      ${tile(s2.best, "longest sleep-goal streak")}
+    </div>` : "";
+
+    if (!out.length && !streakHtml) return "";
+    return `<section class="section"><h2>Trends and patterns</h2>${streakHtml}<div class="stack" style="margin-top:12px">${out.join("")}</div></section>`;
+  }
+
+  // Workouts: the mix by type and the time of day they start.
+  function workoutCharts(W) {
+    const X = window.Stillday.Charts; if (!X) return "";
+    const list = [];
+    W.days.forEach(d => ((Store.getDay(d) || {}).workouts || []).forEach(w => list.push(w)));
+    if (list.length < 3) return "";
+    const types = new Map(); list.forEach(w => { const k = woType(w.type); types.set(k, (types.get(k) || 0) + (w.min || 0)); });
+    const mins = list.reduce((n, w) => n + (w.min || 0), 0);
+    const hours = Array(24).fill(0); list.forEach(w => { if (w.start) hours[+w.start.slice(0, 2)]++; });
+    const timed = hours.reduce((a, b) => a + b, 0), peak = hours.indexOf(Math.max(...hours));
+    return `<section class="section stack">
+      ${mins ? xcard("Workout mix", "Share of training minutes by type.", X.donut([...types].map(([k, v]) => [`${woIcon(k)} ${k}`, v, `${fmtNum(v)} min`]), { center: mins >= 600 ? `${Math.round(mins / 60)}h` : `${mins}m`, sub: "trained", fmt: v => `${fmtNum(v)} min` })) : ""}
+      ${timed >= 3 ? xcard("When you work out", `Most often around <b>${pad(peak)}:00</b>. Based on ${timed} workouts with a start time.`, X.radial(hours, { labels: hours.map((_, i) => i % 6 === 0 ? pad(i) : ""), tip: (i, v) => `${pad(i)}:00 to ${pad(i)}:59: ${v} workout${v === 1 ? "" : "s"}`, center: `${pad(peak)}:00`, sub: "peak" })) : ""}
+    </section>`;
+  }
+
   function viewBody() {
     const W = bodyWindow(), all = W.kind === "all", fixed = all || W.kind === "custom";
     const prevDays = all ? [] : daysFrom(addDays(W.from, -W.raw), addDays(W.from, -1)).filter(d => W.dowIgnored || dowOk(d));
@@ -1723,8 +1902,10 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     </section>
     ${bodyStats(W)}
     <section class="section stack">${cards}</section>
+    ${bodyCharts(W)}
     ${sleepTimes(W)}
     ${activities(W)}
+    ${workoutCharts(W)}
     ${dayLog(W)}
     ${bodyInsights()}
     <p class="note" style="margin-top:16px">Numbers can come from Apple Health through an iPhone Shortcut. Bedtimes and workouts can also come from Shortcuts with no watch at all (see the tracker-setup folder). You can type anything in for any day, too.</p>`;
@@ -2277,7 +2458,8 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
   window.Stillday = {
     $, esc, pad, ymd, parse, today, addDays, addMonths, fmt, fmtNum, fmtSleep, dayOfYear, daysInYear, LS, toast, openSheet,
     closeSheet: () => { if (sheet.open) sheet.close(); }, paint, ICON, barsHtml, avgOf, Store, Ideas, settings, saveSettings,
-    settingsSheet, cleanDays: cleanImport, ILLO, HOOKS, EXTRA, VIEWS, changed, hasLine
+    settingsSheet, cleanDays: cleanImport, ILLO, HOOKS, EXTRA, VIEWS, changed, hasLine,
+    clockMin, eveMin, fromEve, nightLen, MOODS, woType, woIcon, daysFrom
   };
 
   function start() {
@@ -2296,8 +2478,10 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
 })();
 </script>
 <script src="airports.js"></script>
+<script src="charts.js"></script>
 <script src="music.js"></script>
 <script src="flights.js"></script>
+<script src="insights.js"></script>
 <script src="sync.js"></script>
 </body>
 </html>
