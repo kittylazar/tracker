@@ -276,7 +276,7 @@
       return `
       <section class="hero">
         <div class="eyebrow">Your soundtrack</div>
-        <div class="hero-row"><h1>Music</h1></div>
+        <div class="hero-row"><h1>Music</h1>${A.ILLO.spot("music", "hero-spot")}</div>
         <div class="hero-meta"><span class="sub">See what you actually listened to.</span></div>
       </section>
       <section class="section"><div class="card empty">${A.ILLO.spot("music", "empty-spot")}

@@ -59,14 +59,13 @@
   const VARS = [
     { k: "Sleep", get: r => r.sleep, f: slp, more: "more sleep", less: "less sleep" },
     { k: "Steps", get: r => r.steps, f: stepsF, more: "more steps", less: "fewer steps" },
-    { k: "Move", name: "Movement", get: r => r.move, f: v => `${Math.round(v)} min`, more: "more movement", less: "less movement" },
     { k: "Mood", get: r => r.mood, f: f1, more: "a brighter mood", less: "a lower mood" },
     { k: "Music", get: r => r.music, f: dur, more: "more music", less: "less music" },
     { k: "Late", name: "Late-evening music", get: r => r.late, f: dur, more: "more late-evening music", less: "less late-evening music" },
     { k: "Flight", name: "Flight day", get: r => r.fl ? 1 : 0, f: v => v >= .5 ? "yes" : "no", bin: "flight days" },
     { k: "Away", name: "Away on a trip", get: r => r.trip ? 1 : 0, f: v => v >= .5 ? "yes" : "no", bin: "days away on a trip" }
   ];
-  const SAME = [["Steps", "Move"], ["Flight", "Away"], ["Music", "Late"]];
+  const SAME = [["Flight", "Away"], ["Music", "Late"]];
   function pairOf(R, a, b) {
     const xs = [], ys = [], pts = [];
     R.forEach(r => { const x = a.get(r), y = b.get(r); if (x != null && y != null) { xs.push(x); ys.push(y); pts.push({ x, y, t: fmt(r.d, { day: "numeric", month: "short", year: "numeric" }) }); } });
@@ -78,7 +77,7 @@
     const hero = `
     <section class="hero">
       <div class="eyebrow">Body · music · flights, side by side</div>
-      <div class="hero-row"><h1>Insights</h1></div>
+      <div class="hero-row"><h1>Insights</h1>${A.ILLO.spot("insights", "hero-spot")}</div>
       <div class="hero-meta"><span class="sub">Patterns between the things you track.</span></div>
     </section>`;
     const kinds = D ? Object.values(D.has).filter(Boolean).length : 0;

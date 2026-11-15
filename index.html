@@ -909,6 +909,24 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
 @keyframes il-glow { to { transform: scale(1.2); opacity: .45; } }
 @keyframes il-drift { to { transform: translateX(16px); } }
 @keyframes il-twinkle { to { opacity: .7; } }
+.il .s-trees { display: none; }
+:root[data-style="fun"] .il .s-trees, :root[data-style="natural"] .il .s-trees { display: inline; }
+.il-rays { transform-box: view-box; transform-origin: 292px 62px; animation: il-spin 60s linear infinite; }
+.il-cloud { animation: il-cloud 14s ease-in-out infinite alternate; }
+.il-cloud.slow { animation-duration: 22s; animation-direction: alternate-reverse; }
+@keyframes il-cloud { to { transform: translateX(-18px); } }
+.il-birds { animation: il-birds 7s ease-in-out infinite alternate; }
+@keyframes il-birds { to { transform: translate(14px, -4px); } }
+.il-moon .tw { animation: il-tw 2.8s ease-in-out infinite alternate; }
+.il-moon .tw.b { animation-delay: -1s; animation-duration: 3.6s; }
+.il-moon .tw.c { animation-delay: -2s; animation-duration: 2.2s; }
+@keyframes il-tw { from { opacity: .35; } to { opacity: 1; } }
+.il-peek { transform-box: fill-box; transform-origin: 50% 100%; animation: il-peek 6s ease-in-out infinite; }
+@keyframes il-peek { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-4px) rotate(-3deg); } 90% { transform: translateY(0) rotate(2deg); } }
+.spot-spark { animation: il-tw 2.4s ease-in-out infinite alternate; }
+.spot-blob { transform-box: fill-box; transform-origin: center; animation: il-blob 9s ease-in-out infinite alternate; }
+@keyframes il-blob { to { transform: rotate(8deg) scale(1.04); } }
+.face { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .12)); }
 .hero-row { align-items: flex-end; }
 .hero-spot { width: 74px; height: 74px; flex: none; animation: il-bob 4s ease-in-out infinite alternate; }
 @keyframes il-bob { to { transform: translateY(-5px) rotate(-4deg); } }
@@ -1176,17 +1194,34 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const leaf = (x, y, rot, l, w) => `<path transform="translate(${x} ${y}) rotate(${rot})" d="M0 0C${l * .3} ${-w} ${l * .75} ${-w} ${l} 0C${l * .75} ${w} ${l * .3} ${w} 0 0Z"/>`;
     const flower = (x, y, r) => `<g transform="translate(${x} ${y})">${[0, 72, 144, 216, 288].map(a => `<circle cx="${(Math.cos(a * Math.PI / 180) * r).toFixed(1)}" cy="${(Math.sin(a * Math.PI / 180) * r).toFixed(1)}" r="${r * .8}" fill="var(--il-pop)"/>`).join("")}<circle r="${r * .7}" fill="var(--il-sun)"/></g>`;
 
+    // A soft, puffy cloud.
+    const cloud = (x, y, s) => `<path transform="translate(${x} ${y}) scale(${s})" d="M-18 6c-6 0-9-4-8-8 1-5 6-7 10-5 1-6 7-10 13-8 4 1 7 4 8 8 5-2 11 1 11 7 0 4-3 6-7 6Z"/>`;
+    // A little round tree with a highlight.
+    const tree = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-1.4" y="-2" width="2.8" height="9" rx="1.2" fill="var(--il-line)" opacity=".55"/><circle cy="-8" r="8" fill="var(--il-leaf)"/><circle cx="-2.6" cy="-10.5" r="2.6" fill="#fff" opacity=".22"/></g>`;
+    const bird = (x, y, s) => `<path transform="translate(${x} ${y}) scale(${s})" d="M-6 0q3-3.5 6 0q3-3.5 6 0" fill="none" stroke="var(--il-line)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+
     function scene() {
+      const rays = Array.from({ length: 12 }, (_, i) => { const a = i / 12 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); return `M${(292 + c * 27).toFixed(1)} ${(62 + s * 27).toFixed(1)}L${(292 + c * 33).toFixed(1)} ${(62 + s * 33).toFixed(1)}`; }).join("");
       return `<svg class="il scene" viewBox="0 0 360 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-        <g class="il-sun"><circle class="il-glow" cx="292" cy="62" r="30" fill="#fff" opacity=".45"/><circle cx="292" cy="62" r="20" fill="var(--il-sun)"/></g>
-        <g class="il-moon" fill="var(--il-sun)"><path d="M300 41a22 22 0 1 0 17 34a17.5 17.5 0 1 1-17-34Z"/>${star(244, 30, 1.1)}${star(330, 22, .8)}${star(200, 50, .7)}${star(60, 26, .9)}${star(120, 18, .6)}</g>
+        <g class="il-sun"><circle class="il-glow" cx="292" cy="62" r="30" fill="#fff" opacity=".45"/><path class="il-rays" d="${rays}" stroke="var(--il-sun)" stroke-width="2.6" stroke-linecap="round" opacity=".7"/><circle cx="292" cy="62" r="20" fill="var(--il-sun)"/><circle cx="285" cy="55" r="6" fill="#fff" opacity=".3"/></g>
+        <g class="il-sun il-cloud" fill="#fff" opacity=".85">${cloud(212, 40, 1.1)}${cloud(330, 30, .75)}</g>
+        <g class="il-sun il-cloud slow" fill="#fff" opacity=".6">${cloud(92, 24, .8)}</g>
+        <g class="il-sun il-birds" opacity=".55">${bird(124, 62, .9)}${bird(137, 56, .7)}${bird(113, 55, .55)}</g>
+        <g class="il-moon" fill="var(--il-sun)"><path d="M300 41a22 22 0 1 0 17 34a17.5 17.5 0 1 1-17-34Z"/><circle cx="290" cy="68" r="2.4" fill="#000" opacity=".08"/><circle cx="298" cy="56" r="1.6" fill="#000" opacity=".08"/>
+          <g class="tw a">${star(244, 30, 1.1)}${star(60, 26, .9)}</g><g class="tw b">${star(330, 22, .8)}${star(120, 18, .6)}${star(166, 40, .5)}</g><g class="tw c">${star(200, 50, .7)}${star(22, 50, .55)}${star(352, 50, .5)}</g>
+          <circle cx="94" cy="44" r="1.1"/><circle cx="182" cy="22" r="1"/><circle cx="268" cy="20" r="1.2"/><circle cx="36" cy="14" r="1"/></g>
+        <path d="M0 86C50 66 110 60 170 76S290 66 360 56V140H0Z" fill="var(--il-hill2)" opacity=".45"/>
         <g class="s-subtle il-drift" stroke="var(--il-line)" stroke-width="2.2" stroke-linecap="round" opacity=".22"><path d="M36 42h44M54 52h44"/><path d="M196 30h30M210 38h26"/></g>
         <g class="s-fun"><path class="il-spin" d="${badge(70, 50, 9, 22, 17)}" fill="var(--il-pop)"/><path d="M150 34q8-10 16 0t16 0 16 0" fill="none" stroke="var(--il-sky-line, var(--il-line))" stroke-width="3" stroke-linecap="round"/>
           <rect x="222" y="22" width="9" height="9" rx="2.5" fill="var(--t3)" transform="rotate(20 226 26)"/><circle cx="118" cy="72" r="4.5" fill="var(--t1)" stroke="var(--il-line)" stroke-width="1.5"/><circle cx="246" cy="76" r="3.5" fill="var(--il-line)"/></g>
         <path d="M0 98C60 70 120 72 180 92S300 80 360 70V140H0Z" fill="var(--il-hill2)"/>
+        <path d="M0 98C60 70 120 72 180 92S300 80 360 70" fill="none" stroke="#fff" stroke-width="2" opacity=".18"/>
+        <g class="s-trees">${tree(256, 88, 1.25)}${tree(276, 84, .95)}${tree(92, 84, 1.1)}${tree(110, 82, .8)}</g>
         <g class="s-subtle"><path d="M118 140 186 74q8-8 16 0l70 66Z" fill="var(--il-hill1)" opacity=".75"/><path d="M196 140 258 88q7-6 14 0l62 52Z" fill="var(--il-hill1)"/></g>
         <path d="M0 118C70 96 150 100 220 116S320 112 360 104V140H0Z" fill="var(--il-hill1)"/>
-        <g class="s-fun"><path d="M178 124c0-17 11-28 24-28s24 11 24 28Z" fill="var(--t1)" stroke="var(--il-line)" stroke-width="2.5"/><circle cx="195" cy="111" r="2.6" fill="var(--il-line)"/><circle cx="209" cy="111" r="2.6" fill="var(--il-line)"/><path d="M196 117q6 5 12 0" fill="none" stroke="var(--il-line)" stroke-width="2.2" stroke-linecap="round"/></g>
+        <path d="M0 118C70 96 150 100 220 116S320 112 360 104" fill="none" stroke="#fff" stroke-width="2" opacity=".2"/>
+        <path d="M150 140C160 128 186 122 206 120" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".16" stroke-dasharray="1 9"/>
+        <g class="s-fun il-peek"><path d="M178 124c0-17 11-28 24-28s24 11 24 28Z" fill="var(--t1)" stroke="var(--il-line)" stroke-width="2.5"/><circle cx="195" cy="111" r="2.6" fill="var(--il-line)"/><circle cx="209" cy="111" r="2.6" fill="var(--il-line)"/><circle cx="196" cy="110" r=".9" fill="#fff"/><circle cx="210" cy="110" r=".9" fill="#fff"/><path d="M196 117q6 5 12 0" fill="none" stroke="var(--il-line)" stroke-width="2.2" stroke-linecap="round"/><circle cx="189" cy="117" r="3" fill="var(--il-pop)" opacity=".5"/><circle cx="215" cy="117" r="3" fill="var(--il-pop)" opacity=".5"/><path d="M196 96q2-7 6-8" fill="none" stroke="var(--il-line)" stroke-width="2.2" stroke-linecap="round"/></g>
         <g class="s-natural" fill="var(--il-leaf)"><path d="M40 140C42 116 38 96 26 74" fill="none" stroke="var(--il-leaf)" stroke-width="3" stroke-linecap="round"/>${leaf(37, 112, -150, 22, 7)}${leaf(39, 100, -30, 20, 6.5)}${leaf(32, 88, -160, 18, 6)}${leaf(30, 80, -50, 16, 5.5)}
           <path d="M332 140C330 122 334 108 344 94" fill="none" stroke="var(--il-leaf)" stroke-width="2.6" stroke-linecap="round"/>${leaf(332, 120, -20, 18, 6)}${leaf(334, 108, -165, 16, 5.5)}${flower(112, 116, 4.5)}${flower(150, 124, 3.6)}${flower(268, 120, 4)}</g>
         <g class="s-subtle" fill="var(--il-leaf)"><path d="M24 140C34 112 40 92 58 70" fill="none" stroke="var(--il-leaf)" stroke-width="2" stroke-linecap="round"/>${leaf(31, 118, -120, 26, 6)}${leaf(36, 104, -40, 24, 5.5)}${leaf(44, 90, -125, 22, 5)}${leaf(50, 80, -45, 18, 4.5)}</g>
@@ -1201,13 +1236,19 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       ideas: `<g stroke="var(--il-line)" stroke-width="3" stroke-linecap="round"><path d="M48 6v8M18 20l6 6M78 20l-6 6M8 48h8M80 48h8"/></g><path d="M48 22c-15 0-26 11-26 25 0 9 4 15 10 20 3 3 4 6 4 10h24c0-4 1-7 4-10 6-5 10-11 10-20 0-14-11-25-26-25Z" fill="var(--il-sun)" stroke="var(--il-line)" stroke-width="2.8"/><path d="M38 84h20M41 91h14" stroke="var(--il-line)" stroke-width="3.2" stroke-linecap="round"/><path d="M42 54q6 7 12 0" fill="none" stroke="var(--il-line)" stroke-width="2.6" stroke-linecap="round"/><circle cx="40" cy="45" r="2.6" fill="var(--il-line)"/><circle cx="56" cy="45" r="2.6" fill="var(--il-line)"/>`,
       rewind: `<circle cx="48" cy="50" r="32" fill="var(--il-pop)"/><circle cx="48" cy="50" r="24" fill="var(--solid)" stroke="var(--il-line)" stroke-width="2.6"/><path d="M48 36v15l10 6" fill="none" stroke="var(--il-line)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 22l-2 14 14-1" fill="none" stroke="var(--il-line)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="80" cy="16" r="7" fill="var(--il-sun)"/>`
     };
-    const spot = (kind, cls) => SPOTS[kind] ? `<svg class="il spot ${cls || ""}" viewBox="0 0 96 96" aria-hidden="true" focusable="false">${SPOTS[kind]}</svg>` : "";
+    SPOTS.insights = `<rect x="14" y="58" width="12" height="24" rx="4" fill="var(--il-sun)" stroke="var(--il-line)" stroke-width="2.4"/><rect x="32" y="44" width="12" height="38" rx="4" fill="var(--il-pop)" stroke="var(--il-line)" stroke-width="2.4"/><rect x="50" y="52" width="12" height="30" rx="4" fill="var(--il-hill1)" stroke="var(--il-line)" stroke-width="2.4"/><circle cx="66" cy="34" r="16" fill="var(--solid)" stroke="var(--il-line)" stroke-width="3"/><path d="M58 37l5-5 4 4 7-8" fill="none" stroke="var(--il-line)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M78 46l10 10" stroke="var(--il-line)" stroke-width="5" stroke-linecap="round"/><circle cx="61" cy="29" r="3" fill="#fff" opacity=".6"/>`;
+    // Every small drawing sits on a soft blob with a couple of sparkles, so they read as one family.
+    const BLOB = "M50 8c18 0 36 10 38 30 2 18-6 40-26 48-18 7-40 2-50-14C2 56 6 34 18 21 26 12 38 8 50 8Z";
+    const spot = (kind, cls) => SPOTS[kind] ? `<svg class="il spot ${cls || ""}" viewBox="0 0 96 96" aria-hidden="true" focusable="false">
+      <path class="spot-blob" d="${BLOB}" fill="var(--il-sky)" opacity=".7"/>
+      <g class="spot-spark" fill="var(--il-sun)">${star(86, 70, .9)}${star(10, 14, .7)}</g>
+      ${SPOTS[kind]}</svg>` : "";
 
     // Mood faces, from heavy to bright.
     const MOUTH = ["M12 25.5q6-6.5 12 0", "M12.5 24.5q5.5-3.2 11 0", "M13 23.5h10", "M12 21.5q6 5.5 12 0", "M11 20.5q7 9.5 14 0Z"];
     function face(n) {
       const eyes = n === 1 ? `<path d="M10.5 15.5q2.5 2 5 0M20.5 15.5q2.5 2 5 0" fill="none"/>` : n === 5 ? `<path d="M10.5 16q2.5-3 5 0M20.5 16q2.5-3 5 0" fill="none"/>` : `<circle cx="13" cy="15.5" r="1.9" fill="var(--ink)" stroke="none"/><circle cx="23" cy="15.5" r="1.9" fill="var(--ink)" stroke="none"/>`;
-      return `<svg class="face" viewBox="0 0 36 36" aria-hidden="true" focusable="false"><circle cx="18" cy="18" r="16" class="face-bg"/><g stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${eyes}<path d="${MOUTH[n - 1]}" fill="${n === 5 ? "var(--ink)" : "none"}"/></g>${n >= 4 ? `<circle cx="9" cy="21" r="2.4" fill="var(--il-pop)" opacity=".45"/><circle cx="27" cy="21" r="2.4" fill="var(--il-pop)" opacity=".45"/>` : ""}</svg>`;
+      return `<svg class="face" viewBox="0 0 36 36" aria-hidden="true" focusable="false"><circle cx="18" cy="18" r="16" class="face-bg"/><path d="M7.5 12.5a12 12 0 0 1 7-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".45"/><g stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${eyes}<path d="${MOUTH[n - 1]}" fill="${n === 5 ? "var(--ink)" : "none"}"/></g>${n >= 4 ? `<circle cx="9" cy="21" r="2.4" fill="var(--il-pop)" opacity=".45"/><circle cx="27" cy="21" r="2.4" fill="var(--il-pop)" opacity=".45"/>` : ""}</svg>`;
     }
     return { scene, spot, face };
   })();
@@ -1410,7 +1451,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       <div class="tiles">
         ${tile("Last night", fmtSleep(pr.sleepMin != null ? pr.sleepMin : pr.bedAt && pr.wakeAt ? nightLen(pr.bedAt, pr.wakeAt) : null) || (prSmall ? "–" : null), prev, prSmall)}
         ${tile("Steps", fmtNum(r.steps))}
-        ${tile("Movement", r.exerciseMin != null ? `${fmtNum(r.exerciseMin)} min` : null)}
+        ${tile("Distance", r.distanceKm != null ? `${(Math.round(r.distanceKm * 10) / 10).toLocaleString("en-GB")} km` : null)}
       </div>
       <div class="wo-row">
         ${(r.workouts || []).map((w, i) => `<button class="wo-chip" data-act="wo-edit" data-date="${d}" data-i="${i}">${woIcon(w.type)} ${esc(w.type)}${w.min ? ` · ${w.min} min` : ""}</button>`).join("")}
@@ -1634,15 +1675,16 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const nSteps = rows.filter(r => r.steps != null).length, hit = rows.filter(r => r.steps != null && r.steps >= settings.stepGoal).length;
     const nSleep = rows.filter(r => r.sleepMin != null).length, slept = rows.filter(r => r.sleepMin != null && r.sleepMin >= settings.sleepGoalH * 60).length;
     const dd = r => esc(fmt(r.date, { day: "numeric", month: "short" }));
+    const nWo = rows.reduce((n, r) => n + ((r.workouts || []).length), 0);
     return `<section class="section"><h2>Highlights</h2><div class="stat-grid" style="margin-top:14px">
       ${st(fmtNum(sum("steps")), "steps in total")}
       ${st(`${(Math.round(sum("distanceKm") * 10) / 10).toLocaleString("en-GB")} km`, "distance in total")}
-      ${st(`${fmtNum(sum("exerciseMin"))} min`, "movement in total")}
       ${st(bs ? fmtNum(bs.steps) : "–", bs ? `most steps · ${dd(bs)}` : "most steps")}
       ${st(bl ? fmtSleep(bl.sleepMin) : "–", bl ? `longest sleep · ${dd(bl)}` : "longest sleep")}
       ${st(nSteps ? `${hit}/${nSteps}` : "–", `days over ${fmtNum(settings.stepGoal)} steps`)}
+      ${st(nSteps ? fmtNum(Math.round(sum("steps") / nSteps)) : "–", "steps a day on average")}
+      ${st(String(nWo), nWo === 1 ? "workout" : "workouts")}
       ${nSleep ? st(`${slept}/${nSleep}`, `nights with ${settings.sleepGoalH}h+ sleep`) : ""}
-      ${sum("activeKcal") ? st(fmtNum(sum("activeKcal")), "active kcal burned") : ""}
       ${nSleep ? st(fmtSleep(Math.round(sum("sleepMin") / nSleep)), "average night") : ""}
     </div></section>`;
   }
@@ -1761,7 +1803,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
           <span class="dl-d"><b>${esc(fmt(d, { weekday: "short" }))}</b><small>${esc(fmt(d, { day: "numeric", month: "short" }))}</small></span>
           ${cell((x => x != null ? fmtSleep(x).replace(" ", "") : null)(r.sleepMin != null ? r.sleepMin : r.bedAt && r.wakeAt ? nightLen(r.bedAt, r.wakeAt) : null), r.bedAt ? `sleep · ${r.bedAt}` : "sleep")}
           ${cell(r.steps != null ? (r.steps >= 10000 ? `${(Math.round(r.steps / 100) / 10).toLocaleString("en-GB")}k` : fmtNum(r.steps)) : null, "steps")}
-          ${cell(r.exerciseMin != null ? `${r.exerciseMin}m` : null, "move")}
+          ${cell(r.distanceKm != null ? `${(Math.round(r.distanceKm * 10) / 10).toLocaleString("en-GB")}` : null, "km")}
           <span class="dl-w">${(r.workouts || []).slice(0, 3).map(w => woIcon(w.type)).join("") || (hasBody(r) ? "" : '<em>Add</em>')}</span>
         </button>`;
       }).join("")}</div></section>`;
@@ -1873,8 +1915,6 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const defs = [
       ["Sleep", "sleepMin", v => fmtSleep(Math.round(v))],
       ["Steps", "steps", v => fmtNum(Math.round(v))],
-      ["Movement", "exerciseMin", v => `${Math.round(v)} min`],
-      ["Active energy", "activeKcal", v => `${fmtNum(Math.round(v))} kcal`],
       ["Distance", "distanceKm", v => `${(Math.round(v * 10) / 10).toLocaleString("en-GB")} km`],
       ["Stand", "standH", v => `${Math.round(v * 10) / 10} h`]
     ];
@@ -1893,7 +1933,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const label = `${fmt(W.from, { day: "numeric", month: "short", year: W.from.slice(0, 4) !== W.to.slice(0, 4) ? "numeric" : undefined })} – ${fmt(W.to, { day: "numeric", month: "short", year: "numeric" })}`;
     return `
     <section class="hero">
-      <div class="eyebrow">Sleep · steps · movement · workouts</div>
+      <div class="eyebrow">Sleep · steps · distance · workouts</div>
       <div class="hero-row"><h1>Body</h1>${ILLO.spot("body", "hero-spot")}</div><div class="hero-meta"><button class="chip accent" data-act="health-today">+ Add numbers</button></div>
     </section>
     <section class="section range-bar">
@@ -2150,10 +2190,6 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
         <p class="note" id="sleepCalc" style="margin-top:6px">Times fill in the length. Change the hours if you know you slept less than you were in bed.</p>
         <div class="grid2" style="margin-top:14px">
           <label><span class="label">Steps</span><input class="inp" name="steps" type="number" inputmode="numeric" min="0" max="200000" value="${v(r.steps)}"></label>
-          <label><span class="label">Exercise (min)</span><input class="inp" name="ex" type="number" inputmode="numeric" min="0" max="1440" value="${v(r.exerciseMin)}"></label>
-        </div>
-        <div class="grid2" style="margin-top:14px">
-          <label><span class="label">Active energy (kcal)</span><input class="inp" name="kcal" type="number" inputmode="numeric" min="0" max="20000" value="${v(r.activeKcal)}"></label>
           <label><span class="label">Stand (hours)</span><input class="inp" name="stand" type="number" inputmode="numeric" min="0" max="24" value="${v(r.standH)}"></label>
         </div>
         <label style="display:block;margin-top:14px"><span class="label">Walking + running distance (km)</span><input class="inp" name="km" type="number" inputmode="decimal" min="0" max="500" step="0.1" value="${v(r.distanceKm)}"></label>
@@ -2404,8 +2440,6 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       bedAt, wakeAt,
       sleepMin: sh == null && sm == null ? fromTimes : Math.min(1440, Math.round((sh || 0) * 60 + (sm || 0))),
       steps: n("steps") == null ? null : Math.round(n("steps")),
-      exerciseMin: n("ex") == null ? null : Math.round(n("ex")),
-      activeKcal: n("kcal") == null ? null : Math.round(n("kcal")),
       standH: n("stand") == null ? null : Math.min(24, Math.round(n("stand"))),
       distanceKm: n("km")
     });
