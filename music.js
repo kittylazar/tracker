@@ -257,7 +257,7 @@
         <div class="hero-row"><h1>Music</h1></div>
         <div class="hero-meta"><span class="sub">See what you actually listened to.</span></div>
       </section>
-      <section class="section"><div class="card empty">
+      <section class="section"><div class="card empty">${A.ILLO.spot("music", "empty-spot")}
         <b style="font-size:18px">Load your Spotify history from Google Drive</b>
         <p>Keep your Spotify export in a Drive folder called <b>Tracker Spotify</b>. Your sheet script reads it and sends Tracker a small summary. Drop in a new export any time and it updates by itself.</p>
         <button class="btn primary" data-act="music-drive" style="margin-top:6px" ${driveBusy ? "disabled" : ""}>${driveBusy ? "Reading your Drive folder…" : "Load from Drive"}</button>
@@ -310,7 +310,7 @@
     return `
     <section class="hero">
       <div class="eyebrow">${esc(M.first ? fmt(M.first, { month: "short", year: "numeric" }) : "")} to ${esc(M.last ? fmt(M.last, { month: "short", year: "numeric" }) : "")}</div>
-      <div class="hero-row"><h1>Music</h1></div>
+      <div class="hero-row"><h1>Music</h1>${A.ILLO.spot("music", "hero-spot")}</div>
       <div class="hero-meta"><span class="sub">${fmtNum(M.plays)} plays in your history</span></div>
       ${driveBar()}
     </section>

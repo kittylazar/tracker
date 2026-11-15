@@ -14,59 +14,122 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600;700&family=Instrument+Serif:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Nunito:wght@600;700;800&family=Instrument+Serif:ital@0;1&display=swap">
 <script>
 /* Set the theme before first paint so there is no flash. */
 (function () {
-  var t = "night";
+  var t = "day", st = "fun";
   try {
     var s = JSON.parse(localStorage.getItem("stillday.settings") || "{}") || {};
     t = s.theme || "auto";
     if (t === "auto") t = matchMedia("(prefers-color-scheme: light)").matches ? "day" : "night";
-    if (s.accent) document.documentElement.style.setProperty("--accent", s.accent);
-  } catch (e) { t = "night"; }
+    if (s.style === "subtle" || s.style === "natural") st = s.style;
+  } catch (e) { t = "day"; }
   document.documentElement.dataset.theme = t;
+  document.documentElement.dataset.style = st;
 })();
 </script>
 <style>
+/* ---------- three styles (Fun, Subtle, Natural), each with a day and a night version ----------
+   --t1..--t5 are the pastel card colours, --ink is the text on them, --btn the main button,
+   --nav-* the bottom bar, --il-* the illustrations. */
 :root {
-  --accent: #ffb224;
-  --bg: #050506;
-  --solid: #111114;
-  --surface: rgba(255,255,255,.035);
-  --surface2: rgba(255,255,255,.07);
-  --line: rgba(255,255,255,.08);
-  --line-hi: rgba(255,255,255,.13);
-  --text: #f6f6f7;
-  --muted: #8d8d97;
-  --accent-ink: var(--accent);
-  --on-accent: #111113;
-  --glow: color-mix(in srgb, var(--accent) 45%, transparent);
-  --shadow: 0 24px 70px rgba(0,0,0,.65);
-  --aurora: .5;
-  --grain: .07;
   --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --display: "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --serif: "Instrument Serif", ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --ease: cubic-bezier(.2,.7,.2,1);
   --spring: cubic-bezier(.34,1.5,.64,1);
+
+  /* Fun, day: bold pastels, black buttons, chunky type */
+  --display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --h1-font: 800 clamp(40px, 11vw, 62px)/.95 var(--display);
+  --h1-track: -.045em;
+  --radius: 26px;
+  --bg: #fbf5e9; --solid: #ffffff; --text: #17151a; --muted: #6d6874;
+  --line: rgba(23,21,26,.09); --line-hi: rgba(255,255,255,.9);
+  --accent: #f0519b; --accent-ink: #c2185b; --on-accent: #ffffff;
+  --btn: #17151a; --on-btn: #ffffff;
+  --t1: #ffe066; --t2: #ffc4de; --t3: #c7cffb; --t4: #c2e5b6; --t5: #ffd3b2; --ink: #17151a;
+  --nav-bg: #17151a; --nav-muted: #9c97a6; --nav-on: #17151a; --nav-ind: #ffe066;
+  --il-sky: #c7cffb; --il-sun: #ffcf33; --il-hill1: #8fd18a; --il-hill2: #ffc4de; --il-leaf: #3f9b5a; --il-pop: #f0519b; --il-line: #17151a;
+  --card-shadow: 0 1px 0 rgba(23,21,26,.04), 0 10px 30px -18px rgba(23,21,26,.35);
+  --shadow: 0 20px 50px -18px rgba(23,21,26,.45);
+  --glow: color-mix(in srgb, var(--accent) 35%, transparent);
+  --surface: var(--solid); --surface2: color-mix(in srgb, var(--text) 7%, transparent);
+  --aurora: .55; --grain: 0;
+  color-scheme: light;
+}
+:root[data-theme="night"] {
+  --bg: #131116; --solid: #1e1b23; --text: #f8f4ff; --muted: #a8a1b3;
+  --line: rgba(255,255,255,.08); --line-hi: rgba(255,255,255,.06);
+  --accent: #ff7ab5; --accent-ink: #ff8fc1; --on-accent: #131116;
+  --btn: #ffe066; --on-btn: #131116;
+  --t1: #f2cf4e; --t2: #ee9cc4; --t3: #9ea8ee; --t4: #94cc8a; --t5: #f2ab7f; --ink: #131116;
+  --nav-bg: #0b0a0d; --nav-muted: #8d879a; --nav-on: #131116; --nav-ind: #ffe066;
+  --il-sky: #2c2950; --il-sun: #ffe9a8; --il-hill1: #4f8f5b; --il-hill2: #8a4e78; --il-leaf: #6cc07f; --il-pop: #ff7ab5; --il-line: #131116;
+  --card-shadow: 0 10px 30px -18px rgba(0,0,0,.8);
+  --shadow: 0 20px 50px -14px rgba(0,0,0,.8);
+  --aurora: .28;
   color-scheme: dark;
 }
-:root[data-theme="day"] {
-  --bg: #f3f2ee;
-  --solid: #ffffff;
-  --surface: rgba(255,255,255,.66);
-  --surface2: rgba(20,20,30,.055);
-  --line: rgba(20,20,30,.085);
-  --line-hi: rgba(255,255,255,.95);
-  --text: #111114;
-  --muted: #696973;
-  --accent-ink: color-mix(in srgb, var(--accent) 52%, #000);
-  --glow: color-mix(in srgb, var(--accent) 38%, transparent);
-  --shadow: 0 24px 60px rgba(40,30,10,.14);
-  --aurora: .34;
-  --grain: .035;
-  color-scheme: light;
+
+/* Subtle: lavender, butter yellow and navy, a serif for headings */
+:root[data-style="subtle"] {
+  --display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --h1-font: 400 clamp(44px, 12vw, 66px)/.98 var(--serif);
+  --h1-track: -.015em;
+  --radius: 24px;
+  --bg: #f5f3fb; --solid: #ffffff; --text: #24264d; --muted: #7b7d9b;
+  --line: rgba(36,38,77,.08); --line-hi: rgba(255,255,255,.9);
+  --accent: #8a8fdc; --accent-ink: #5a5fb8; --on-accent: #ffffff;
+  --btn: #2a2c57; --on-btn: #ffffff;
+  --t1: #e8e7fa; --t2: #fbf1cc; --t3: #e2ebf8; --t4: #f5e7ef; --t5: #eeecf5; --ink: #24264d;
+  --nav-bg: #ffffff; --nav-muted: #9a9cbb; --nav-on: #24264d; --nav-ind: #e8e7fa;
+  --il-sky: #e8e7fa; --il-sun: #f7d978; --il-hill1: #8f94d8; --il-hill2: #c4c7ef; --il-leaf: #5f8a6c; --il-pop: #f7d978; --il-line: #2a2c57;
+  --card-shadow: 0 1px 0 rgba(36,38,77,.03), 0 12px 30px -20px rgba(36,38,77,.35);
+  --shadow: 0 20px 50px -18px rgba(36,38,77,.35);
+  --aurora: .5;
+}
+:root[data-style="subtle"][data-theme="night"] {
+  --bg: #14152b; --solid: #1f2142; --text: #eeeefb; --muted: #9b9dc2;
+  --line: rgba(255,255,255,.08); --line-hi: rgba(255,255,255,.05);
+  --accent: #aab0f4; --accent-ink: #b8bdf7; --on-accent: #14152b;
+  --btn: #f7d978; --on-btn: #1c1d3a;
+  --t1: #2b2e5a; --t2: #3a3526; --t3: #222f4b; --t4: #362a43; --t5: #262842; --ink: #eeeefb;
+  --nav-bg: #1f2142; --nav-muted: #8587ad; --nav-on: #ffffff; --nav-ind: #33366b;
+  --il-sky: #262a57; --il-sun: #f7e3a3; --il-hill1: #4d5299; --il-hill2: #353a78; --il-leaf: #7fae8b; --il-pop: #f7d978; --il-line: #eeeefb;
+  --card-shadow: 0 10px 30px -18px rgba(0,0,0,.7);
+  --shadow: 0 20px 50px -14px rgba(0,0,0,.7);
+  --aurora: .3;
+}
+
+/* Natural: sage, peach and cream, rounded type, leaves */
+:root[data-style="natural"] {
+  --display: "Nunito", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --h1-font: 800 clamp(40px, 11vw, 60px)/.98 var(--display);
+  --h1-track: -.035em;
+  --radius: 28px;
+  --bg: #f4f0e6; --solid: #fffdf8; --text: #1f3329; --muted: #6e7c72;
+  --line: rgba(31,51,41,.09); --line-hi: rgba(255,255,255,.9);
+  --accent: #4f9a62; --accent-ink: #2f6e42; --on-accent: #ffffff;
+  --btn: #2f5e46; --on-btn: #ffffff;
+  --t1: #dcecd4; --t2: #fde2cd; --t3: #fbefc6; --t4: #d4ece5; --t5: #f6d8d3; --ink: #1f3329;
+  --nav-bg: #fffdf8; --nav-muted: #8d9a90; --nav-on: #1f3329; --nav-ind: #dcecd4;
+  --il-sky: #fde9d3; --il-sun: #f8b26a; --il-hill1: #7fb98a; --il-hill2: #b9d9a8; --il-leaf: #3f8a55; --il-pop: #f39a8a; --il-line: #1f3329;
+  --card-shadow: 0 1px 0 rgba(31,51,41,.04), 0 12px 30px -20px rgba(31,51,41,.4);
+  --shadow: 0 20px 50px -18px rgba(31,51,41,.4);
+  --aurora: .5;
+}
+:root[data-style="natural"][data-theme="night"] {
+  --bg: #111915; --solid: #1a2520; --text: #eef3ec; --muted: #9db0a3;
+  --line: rgba(255,255,255,.08); --line-hi: rgba(255,255,255,.05);
+  --accent: #8ccb9b; --accent-ink: #9ad6a8; --on-accent: #111915;
+  --btn: #ecc98f; --on-btn: #16201b;
+  --t1: #233a2c; --t2: #3c2d23; --t3: #38331f; --t4: #1f3832; --t5: #3b2727; --ink: #eef3ec;
+  --nav-bg: #1a2520; --nav-muted: #84968a; --nav-on: #eef3ec; --nav-ind: #2b4635;
+  --il-sky: #1d3029; --il-sun: #f6e2b3; --il-hill1: #2f5c41; --il-hill2: #24473a; --il-leaf: #6fb383; --il-pop: #e59a8c; --il-line: #eef3ec;
+  --card-shadow: 0 10px 30px -18px rgba(0,0,0,.7);
+  --shadow: 0 20px 50px -14px rgba(0,0,0,.7);
+  --aurora: .25;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -608,6 +671,170 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
   *, *::before, *::after { animation: none !important; transition: none !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+/* ================= the look: solid pastel cards, illustrations, a few touches per style ================= */
+.aurora i:nth-child(1) { background: radial-gradient(closest-side, var(--t1), transparent); }
+.aurora i:nth-child(2) { background: radial-gradient(closest-side, var(--t2), transparent); opacity: .9; }
+.aurora i:nth-child(3) { background: radial-gradient(closest-side, var(--t3), transparent); opacity: .8; }
+.brand { font: 800 19px/1 var(--display); letter-spacing: -.03em; }
+.brand i { width: 12px; height: 12px; background: var(--accent); box-shadow: none; animation: none; }
+:root[data-style="fun"] .brand i { border-radius: 4px; transform: rotate(45deg); background: var(--il-pop); }
+:root[data-style="subtle"] .brand { font: 400 24px/1 var(--serif); letter-spacing: -.01em; }
+:root[data-style="subtle"] .brand i { background: var(--il-sun); }
+:root[data-style="natural"] .brand i { border-radius: 0 70% 0 70%; width: 14px; background: var(--il-leaf); }
+
+h1 { font: var(--h1-font); letter-spacing: var(--h1-track); background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--text); }
+h2 { font-family: var(--display); font-weight: 700; }
+:root[data-style="fun"] h2 { font-weight: 800; letter-spacing: -.035em; font-size: 22px; }
+:root[data-style="natural"] h2 { font-weight: 800; letter-spacing: -.02em; }
+:root[data-style="subtle"] h2 { font: 400 27px/1.15 var(--serif); letter-spacing: -.01em; }
+:root[data-style="subtle"] .gate-card h1 { font: 400 48px/1 var(--serif); }
+
+.card, .stat, .tile { background: var(--solid); border: 1px solid var(--line); box-shadow: var(--card-shadow); }
+.card { border-radius: var(--radius); }
+.tile, .stat { border-radius: calc(var(--radius) - 6px); }
+.card::after, .tile::after, .stat::after { display: none; }
+
+/* Pastel cards: their text switches to the ink colour that reads on them. */
+.hero-card, .tiles .tile, .stat-grid .stat, .stat-row .stat, .mood.on, .sleep-card, .catchup, .memory, .idea.pick, .insight, .card.empty, .done span.on {
+  --text: var(--ink); --muted: color-mix(in srgb, var(--ink) 64%, transparent); --surface2: color-mix(in srgb, var(--ink) 10%, transparent);
+  color: var(--ink); border-color: transparent;
+}
+.tiles .tile:nth-child(1) { background: var(--t3); }
+.tiles .tile:nth-child(2) { background: var(--t1); }
+.tiles .tile:nth-child(3) { background: var(--t4); }
+:root[data-style="subtle"] .tiles .tile:nth-child(2) { background: var(--t2); }
+.stat-grid .stat:nth-child(5n+1), .stat-row .stat:nth-child(3n+1) { background: var(--t1); }
+.stat-grid .stat:nth-child(5n+2), .stat-row .stat:nth-child(3n+2) { background: var(--t2); }
+.stat-grid .stat:nth-child(5n+3), .stat-row .stat:nth-child(3n+3) { background: var(--t3); }
+.stat-grid .stat:nth-child(5n+4) { background: var(--t4); }
+.stat-grid .stat:nth-child(5n+5) { background: var(--t5); }
+.stat-grid .stat:first-child b { color: var(--ink); }
+.sleep-card, .sleep-card.on { background: var(--t3); }
+:root[data-style="natural"] .sleep-card { background: var(--t4); }
+.catchup { background: var(--t2); }
+:root[data-style="natural"] .catchup { background: var(--t1); }
+.memory { background: var(--t5); }
+.memory::before { color: color-mix(in srgb, var(--ink) 18%, transparent); }
+.idea.pick { background: var(--t1); }
+.idea.pick .tag { color: var(--ink); }
+.insight { background: var(--t4); }
+.insight b { color: var(--ink); }
+.card.empty { background: var(--t2); }
+.tile .v, .stat b, .ring b, .big { font-family: var(--display); font-weight: 800; }
+:root[data-style="subtle"] .tile .v, :root[data-style="subtle"] .stat b, :root[data-style="subtle"] .ring b { font-family: var(--serif); font-weight: 400; letter-spacing: -.01em; }
+:root[data-style="subtle"] .tile .v { font-size: 24px; }
+:root[data-style="subtle"] .stat b { font-size: 28px; }
+.tile .v.none { font-family: var(--sans); font-weight: 500; }
+/* A lighter patch on a pastel card (day squares, the chosen mood face). */
+:root { --on-tint: rgba(255,255,255,.62); }
+:root[data-style="subtle"][data-theme="night"], :root[data-style="natural"][data-theme="night"] { --on-tint: rgba(255,255,255,.09); }
+/* Fun at night: the cards stay bright, but the header is a night sky, so its text turns light. */
+:root[data-style="fun"][data-theme="night"] { --il-sky-line: #ffe066; }
+:root[data-style="fun"][data-theme="night"] .hero-card { --ink: #f8f4ff; }
+
+/* Today: the illustrated header */
+.hero-card { position: relative; overflow: hidden; background: var(--il-sky); border-radius: var(--radius); padding: 20px 20px 0; margin-top: 10px; box-shadow: var(--card-shadow); }
+.hero-card .hero-sub b { color: var(--ink); }
+.hero-card .daybar { margin-top: 14px; position: relative; z-index: 1; }
+.hero-card .scene { display: block; width: calc(100% + 40px); height: clamp(118px, 28vw, 230px); margin: 4px -20px 0; }
+.hero-after .hero-meta.split { margin-top: 14px; }
+.ring .trk { stroke: color-mix(in srgb, var(--ink) 14%, transparent); }
+.ring .arc { stroke: var(--accent); filter: none; }
+:root[data-style="fun"] .ring .arc { stroke: var(--ink); }
+.daybar .trk { height: 6px; }
+.daybar .trk i { background: var(--accent); }
+:root[data-style="fun"] .daybar .trk i { background: var(--ink); }
+.done span { background: var(--solid); border-color: var(--line); }
+.done span.on { background: var(--t4); }
+.done span.on::before { background: var(--ink); box-shadow: none; }
+
+/* Mood faces */
+.mood:nth-child(1) { --mc: var(--t3); } .mood:nth-child(2) { --mc: var(--t5); } .mood:nth-child(3) { --mc: var(--t1); }
+.mood:nth-child(4) { --mc: var(--t4); } .mood:nth-child(5) { --mc: var(--t2); }
+.mood { height: 86px; grid-template-rows: 36px auto; border-radius: calc(var(--radius) - 6px); background: var(--solid); border-color: var(--line); box-shadow: var(--card-shadow); color: var(--muted); }
+.face { width: 36px; height: 36px; transition: transform .4s var(--spring); }
+.face-bg { fill: var(--mc); }
+.mood:hover .face { transform: rotate(-10deg) scale(1.08); }
+.mood.on { background: var(--mc); box-shadow: inset 0 0 0 2px var(--ink); }
+.mood.on .face { transform: scale(1.14); animation: pop .55s var(--spring); }
+.mood.on .face-bg { fill: var(--on-tint); }
+
+/* Fields and buttons */
+.field { background: var(--solid); border-color: var(--line); box-shadow: var(--card-shadow); border-radius: calc(var(--radius) - 4px); }
+.field:focus { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+:root[data-style="fun"] textarea.field { font: 600 22px/1.3 var(--display); letter-spacing: -.015em; }
+:root[data-style="natural"] textarea.field { font: 700 21px/1.35 var(--display); }
+.chip { background: var(--surface2); }
+.chip.accent, .chip.on, .btn.primary { background: var(--btn); color: var(--on-btn); box-shadow: none; }
+.btn.primary:hover { box-shadow: 0 10px 24px -10px var(--btn); }
+.btn { background: var(--surface2); border-color: transparent; border-radius: 16px; }
+:root[data-style="fun"] .btn { border-radius: 99px; }
+:root[data-style="natural"] .btn { border-radius: 18px; }
+.inp { background: var(--surface2); }
+.inp:focus { border-color: var(--accent); }
+.switch input:checked + span { background: var(--btn); box-shadow: none; }
+.switch input:checked + span::after { background: var(--on-btn); }
+.check.on { background: var(--btn); border-color: var(--btn); color: var(--on-btn); box-shadow: none; }
+.subnav { background: var(--solid); border-color: var(--line); box-shadow: var(--card-shadow); border-radius: 99px; }
+.subnav button { border-radius: 99px; }
+.subnav button.on { background: var(--btn); color: var(--on-btn); box-shadow: none; }
+.subnav button.on::after { display: none; }
+.seg button.on { background: var(--solid); box-shadow: var(--card-shadow); }
+.sync-pill { background: var(--solid); border-color: var(--line); }
+.sync-pill i, .toast::before { box-shadow: none; }
+.wo-chip { background: var(--solid); }
+.week button.has::before, .dot.has, .map .arc, .map .apt, .mood.on i, .tabs button.on svg, .wk .bar i.peak { box-shadow: none; filter: none; }
+.sd { background: var(--surface2); }
+.sd.has { background: var(--on-tint); }
+.sd.has b { color: var(--ink); }
+.sd.miss { border-color: color-mix(in srgb, var(--ink) 45%, transparent); }
+.sd.miss::after { color: var(--ink); }
+.sd.cur { box-shadow: 0 0 0 2px var(--ink); }
+
+/* Bottom bar */
+.tabs { background: var(--nav-bg); border-color: var(--line); box-shadow: var(--shadow); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.tabs button, .tabs button:hover { color: var(--nav-muted); }
+.tabs button.on { color: var(--nav-on); font-weight: 650; }
+.tabs .ind { background: var(--nav-ind); box-shadow: none; }
+
+/* Sheets and toasts */
+dialog { background: var(--solid); backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--line); }
+dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent); }
+.toast { background: var(--btn); color: var(--on-btn); border-color: transparent; backdrop-filter: none; }
+.toast::before { background: var(--il-pop); }
+
+/* Choosing the look in Settings */
+.looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.look { display: grid; gap: 2px; justify-items: start; text-align: left; padding: 12px 12px 11px; border-radius: 18px; background: var(--surface2); border: 2px solid transparent; transition: transform .3s var(--spring), border-color .2s, background-color .2s; }
+.look:active { transform: scale(.95); }
+.look.on { border-color: var(--text); background: var(--solid); }
+.look-sw { display: flex; margin-bottom: 8px; }
+.look-sw i { width: 22px; height: 22px; border-radius: 50%; margin-right: -7px; border: 2px solid var(--solid); }
+.look b { font-size: 16px; line-height: 1.2; }
+.look small { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+.look[data-look="fun"] b { font-family: "Bricolage Grotesque", var(--sans); font-weight: 800; letter-spacing: -.03em; }
+.look[data-look="subtle"] b { font: 400 20px/1.1 var(--serif); }
+.look[data-look="natural"] b { font-family: "Nunito", var(--sans); font-weight: 800; }
+
+/* Illustrations: show the decorations of the current look, the sun by day and the moon at night */
+.il .s-fun, .il .s-subtle, .il .s-natural { display: none; }
+:root[data-style="fun"] .il .s-fun, :root[data-style="subtle"] .il .s-subtle, :root[data-style="natural"] .il .s-natural { display: inline; }
+:root[data-theme="night"] .il-sun, :root:not([data-theme="night"]) .il-moon { display: none; }
+.il-spin { transform-box: fill-box; transform-origin: center; animation: il-spin 22s linear infinite; }
+.il-glow { transform-box: fill-box; transform-origin: center; animation: il-glow 5s ease-in-out infinite alternate; }
+.il-drift { animation: il-drift 9s ease-in-out infinite alternate; }
+.il-moon { animation: il-twinkle 3.5s ease-in-out infinite alternate; }
+@keyframes il-spin { to { transform: rotate(360deg); } }
+@keyframes il-glow { to { transform: scale(1.2); opacity: .45; } }
+@keyframes il-drift { to { transform: translateX(16px); } }
+@keyframes il-twinkle { to { opacity: .7; } }
+.hero-row { align-items: flex-end; }
+.hero-spot { width: 74px; height: 74px; flex: none; animation: il-bob 4s ease-in-out infinite alternate; }
+@keyframes il-bob { to { transform: translateY(-5px) rotate(-4deg); } }
+.empty-spot { width: 112px; height: 112px; margin: 0 auto 6px; }
+.gate-scene { height: 150px; border-radius: var(--radius); overflow: hidden; background: var(--il-sky); margin-bottom: 22px; }
+.gate-scene .il { width: 100%; height: 100%; }
+
 /* ---------- wide screens: a sidebar instead of the bottom bar ---------- */
 @media (min-width: 900px) {
   body { padding-left: 232px; }
@@ -784,18 +1011,27 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
   })();
 
   /* ================= settings & theme ================= */
-  const ACCENTS = [["#ffb224", "Amber"], ["#b8f34a", "Lime"], ["#5ad1ff", "Sky"], ["#ff6b9d", "Rose"], ["#a78bfa", "Violet"]];
-  let settings = { theme: "auto", accent: ACCENTS[0][0], remindOn: false, remindAt: "21:00", sleepGoalH: 7, stepGoal: 8000 };
+  // The three looks. The colours here are only for the little previews in Settings.
+  const STYLES = [
+    ["fun", "Fun", "Bold pastels", ["#ffe066", "#ffc4de", "#c7cffb", "#17151a"]],
+    ["subtle", "Subtle", "Soft lavender", ["#e8e7fa", "#fbf1cc", "#8a8fdc", "#2a2c57"]],
+    ["natural", "Natural", "Sage and peach", ["#dcecd4", "#fde2cd", "#7fb98a", "#2f5e46"]]
+  ];
+  let settings = { theme: "auto", style: "fun", remindOn: false, remindAt: "21:00", sleepGoalH: 7, stepGoal: 8000 };
   try { Object.assign(settings, JSON.parse(LS.get("stillday.settings") || "{}") || {}); } catch (e) {}
+  if (!STYLES.some(s => s[0] === settings.style)) settings.style = "fun";
+  delete settings.accent;
   const saveSettings = () => LS.set("stillday.settings", JSON.stringify(settings));
   const lightMq = matchMedia("(prefers-color-scheme: light)");
 
   function applyTheme() {
     const t = settings.theme === "auto" ? (lightMq.matches ? "day" : "night") : settings.theme;
-    document.documentElement.dataset.theme = t;
-    document.documentElement.style.setProperty("--accent", settings.accent);
+    const h = document.documentElement;
+    h.dataset.theme = t;
+    h.dataset.style = settings.style;
+    h.style.removeProperty("--accent");
     const meta = $('meta[name="theme-color"]');
-    if (meta) meta.content = t === "day" ? "#f5f4f0" : "#0a0a0b";
+    if (meta) meta.content = getComputedStyle(h).getPropertyValue("--bg").trim() || (t === "day" ? "#fbf5e9" : "#131116");
   }
   lightMq.addEventListener("change", applyTheme);
 
@@ -828,6 +1064,60 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     close: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     tick: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>'
   };
+  /* ================= illustrations =================
+     Plain inline SVG coloured by the --il-* variables, so each drawing follows the look and day/night.
+     The scene holds the decorations for all three looks; CSS shows the ones for the current look. */
+  const ILLO = (() => {
+    // A scalloped "sticker" star, like a party badge.
+    const badge = (cx, cy, n, r1, r2) => {
+      let d = "";
+      for (let i = 0; i < n; i++) {
+        const a0 = (i / n) * Math.PI * 2, a1 = ((i + .5) / n) * Math.PI * 2, a2 = ((i + 1) / n) * Math.PI * 2;
+        const p = (a, r) => `${(cx + Math.cos(a) * r).toFixed(1)} ${(cy + Math.sin(a) * r).toFixed(1)}`;
+        d += (i ? "" : `M${p(a0, r2)}`) + `Q${p(a1, r1 * 1.18)} ${p(a2, r2)}`;
+      }
+      return d + "Z";
+    };
+    const star = (x, y, s) => `<path transform="translate(${x} ${y}) scale(${s})" d="M0-5C.6-1.4 1.4-.6 5 0 1.4.6.6 1.4 0 5-.6 1.4-1.4.6-5 0-1.4-.6-.6-1.4 0-5Z"/>`;
+    const leaf = (x, y, rot, l, w) => `<path transform="translate(${x} ${y}) rotate(${rot})" d="M0 0C${l * .3} ${-w} ${l * .75} ${-w} ${l} 0C${l * .75} ${w} ${l * .3} ${w} 0 0Z"/>`;
+    const flower = (x, y, r) => `<g transform="translate(${x} ${y})">${[0, 72, 144, 216, 288].map(a => `<circle cx="${(Math.cos(a * Math.PI / 180) * r).toFixed(1)}" cy="${(Math.sin(a * Math.PI / 180) * r).toFixed(1)}" r="${r * .8}" fill="var(--il-pop)"/>`).join("")}<circle r="${r * .7}" fill="var(--il-sun)"/></g>`;
+
+    function scene() {
+      return `<svg class="il scene" viewBox="0 0 360 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+        <g class="il-sun"><circle class="il-glow" cx="292" cy="62" r="30" fill="#fff" opacity=".45"/><circle cx="292" cy="62" r="20" fill="var(--il-sun)"/></g>
+        <g class="il-moon" fill="var(--il-sun)"><path d="M300 41a22 22 0 1 0 17 34a17.5 17.5 0 1 1-17-34Z"/>${star(244, 30, 1.1)}${star(330, 22, .8)}${star(200, 50, .7)}${star(60, 26, .9)}${star(120, 18, .6)}</g>
+        <g class="s-subtle il-drift" stroke="var(--il-line)" stroke-width="2.2" stroke-linecap="round" opacity=".22"><path d="M36 42h44M54 52h44"/><path d="M196 30h30M210 38h26"/></g>
+        <g class="s-fun"><path class="il-spin" d="${badge(70, 50, 9, 22, 17)}" fill="var(--il-pop)"/><path d="M150 34q8-10 16 0t16 0 16 0" fill="none" stroke="var(--il-sky-line, var(--il-line))" stroke-width="3" stroke-linecap="round"/>
+          <rect x="222" y="22" width="9" height="9" rx="2.5" fill="var(--t3)" transform="rotate(20 226 26)"/><circle cx="118" cy="72" r="4.5" fill="var(--t1)" stroke="var(--il-line)" stroke-width="1.5"/><circle cx="246" cy="76" r="3.5" fill="var(--il-line)"/></g>
+        <path d="M0 98C60 70 120 72 180 92S300 80 360 70V140H0Z" fill="var(--il-hill2)"/>
+        <g class="s-subtle"><path d="M118 140 186 74q8-8 16 0l70 66Z" fill="var(--il-hill1)" opacity=".75"/><path d="M196 140 258 88q7-6 14 0l62 52Z" fill="var(--il-hill1)"/></g>
+        <path d="M0 118C70 96 150 100 220 116S320 112 360 104V140H0Z" fill="var(--il-hill1)"/>
+        <g class="s-fun"><path d="M178 124c0-17 11-28 24-28s24 11 24 28Z" fill="var(--t1)" stroke="var(--il-line)" stroke-width="2.5"/><circle cx="195" cy="111" r="2.6" fill="var(--il-line)"/><circle cx="209" cy="111" r="2.6" fill="var(--il-line)"/><path d="M196 117q6 5 12 0" fill="none" stroke="var(--il-line)" stroke-width="2.2" stroke-linecap="round"/></g>
+        <g class="s-natural" fill="var(--il-leaf)"><path d="M40 140C42 116 38 96 26 74" fill="none" stroke="var(--il-leaf)" stroke-width="3" stroke-linecap="round"/>${leaf(37, 112, -150, 22, 7)}${leaf(39, 100, -30, 20, 6.5)}${leaf(32, 88, -160, 18, 6)}${leaf(30, 80, -50, 16, 5.5)}
+          <path d="M332 140C330 122 334 108 344 94" fill="none" stroke="var(--il-leaf)" stroke-width="2.6" stroke-linecap="round"/>${leaf(332, 120, -20, 18, 6)}${leaf(334, 108, -165, 16, 5.5)}${flower(112, 116, 4.5)}${flower(150, 124, 3.6)}${flower(268, 120, 4)}</g>
+        <g class="s-subtle" fill="var(--il-leaf)"><path d="M24 140C34 112 40 92 58 70" fill="none" stroke="var(--il-leaf)" stroke-width="2" stroke-linecap="round"/>${leaf(31, 118, -120, 26, 6)}${leaf(36, 104, -40, 24, 5.5)}${leaf(44, 90, -125, 22, 5)}${leaf(50, 80, -45, 18, 4.5)}</g>
+      </svg>`;
+    }
+
+    // Small drawings for page headers and empty pages.
+    const SPOTS = {
+      body: `<path d="M48 80C20 62 12 46 14 34c2-12 12-19 22-18 6 1 10 4 12 9 2-5 6-8 12-9 10-1 20 6 22 18 2 12-6 28-34 46Z" fill="var(--il-pop)"/><path d="M14 48h18l6-10 8 20 6-12h30" fill="none" stroke="var(--il-line)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+      music: `<circle cx="44" cy="52" r="34" fill="var(--il-line)"/><circle cx="44" cy="52" r="26" fill="none" stroke="var(--bg)" stroke-opacity=".18" stroke-width="1.5"/><circle cx="44" cy="52" r="19" fill="none" stroke="var(--bg)" stroke-opacity=".18" stroke-width="1.5"/><circle cx="44" cy="52" r="11" fill="var(--il-pop)"/><circle cx="44" cy="52" r="2.5" fill="var(--il-line)"/><path d="M74 14v26" stroke="var(--il-line)" stroke-width="3.2" stroke-linecap="round"/><path d="M74 14l14 4v10l-14-4" fill="var(--il-sun)" stroke="var(--il-line)" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="69" cy="41" rx="6" ry="4.5" fill="var(--il-sun)" stroke="var(--il-line)" stroke-width="2.4"/>`,
+      flights: `<path d="M8 74c18-34 52-50 82-44" fill="none" stroke="var(--il-line)" stroke-width="2.4" stroke-dasharray="2 7" stroke-linecap="round"/><path d="M22 70c0-7 5-12 12-12 3-6 9-9 15-8 6 1 10 6 10 11 5 0 9 4 9 9Z" fill="var(--solid)" stroke="var(--il-line)" stroke-width="2.2" stroke-linejoin="round"/><g transform="translate(46 6) scale(1.9)"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" fill="var(--il-pop)" stroke="var(--il-line)" stroke-width="1.3" stroke-linejoin="round"/></g><circle cx="20" cy="22" r="10" fill="var(--il-sun)"/>`,
+      ideas: `<g stroke="var(--il-line)" stroke-width="3" stroke-linecap="round"><path d="M48 6v8M18 20l6 6M78 20l-6 6M8 48h8M80 48h8"/></g><path d="M48 22c-15 0-26 11-26 25 0 9 4 15 10 20 3 3 4 6 4 10h24c0-4 1-7 4-10 6-5 10-11 10-20 0-14-11-25-26-25Z" fill="var(--il-sun)" stroke="var(--il-line)" stroke-width="2.8"/><path d="M38 84h20M41 91h14" stroke="var(--il-line)" stroke-width="3.2" stroke-linecap="round"/><path d="M42 54q6 7 12 0" fill="none" stroke="var(--il-line)" stroke-width="2.6" stroke-linecap="round"/><circle cx="40" cy="45" r="2.6" fill="var(--il-line)"/><circle cx="56" cy="45" r="2.6" fill="var(--il-line)"/>`,
+      rewind: `<circle cx="48" cy="50" r="32" fill="var(--il-pop)"/><circle cx="48" cy="50" r="24" fill="var(--solid)" stroke="var(--il-line)" stroke-width="2.6"/><path d="M48 36v15l10 6" fill="none" stroke="var(--il-line)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 22l-2 14 14-1" fill="none" stroke="var(--il-line)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="80" cy="16" r="7" fill="var(--il-sun)"/>`
+    };
+    const spot = (kind, cls) => SPOTS[kind] ? `<svg class="il spot ${cls || ""}" viewBox="0 0 96 96" aria-hidden="true" focusable="false">${SPOTS[kind]}</svg>` : "";
+
+    // Mood faces, from heavy to bright.
+    const MOUTH = ["M12 25.5q6-6.5 12 0", "M12.5 24.5q5.5-3.2 11 0", "M13 23.5h10", "M12 21.5q6 5.5 12 0", "M11 20.5q7 9.5 14 0Z"];
+    function face(n) {
+      const eyes = n === 1 ? `<path d="M10.5 15.5q2.5 2 5 0M20.5 15.5q2.5 2 5 0" fill="none"/>` : n === 5 ? `<path d="M10.5 16q2.5-3 5 0M20.5 16q2.5-3 5 0" fill="none"/>` : `<circle cx="13" cy="15.5" r="1.9" fill="var(--ink)" stroke="none"/><circle cx="23" cy="15.5" r="1.9" fill="var(--ink)" stroke="none"/>`;
+      return `<svg class="face" viewBox="0 0 36 36" aria-hidden="true" focusable="false"><circle cx="18" cy="18" r="16" class="face-bg"/><g stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${eyes}<path d="${MOUTH[n - 1]}" fill="${n === 5 ? "var(--ink)" : "none"}"/></g>${n >= 4 ? `<circle cx="9" cy="21" r="2.4" fill="var(--il-pop)" opacity=".45"/><circle cx="27" cy="21" r="2.4" fill="var(--il-pop)" opacity=".45"/>` : ""}</svg>`;
+    }
+    return { scene, spot, face };
+  })();
+
   const fmtSleep = m => m == null ? null : `${Math.floor(m / 60)}h ${pad(Math.round(m % 60))}m`;
   const fmtNum = n => n == null ? null : Number(n).toLocaleString("en-GB");
 
@@ -976,7 +1266,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     const ago = Math.round((parse(t) - parse(d)) / 864e5);
     const dl = dayLeft();
     return `
-    <section class="hero">
+    <section class="hero hero-card">
       <div class="hero-grid">
         <div>
           <div class="eyebrow">${esc(fmt(d, { weekday: "long" }))} · ${isToday ? greeting() : esc(String(y))}</div>
@@ -988,6 +1278,10 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
           <div><b>${doy}</b><small>of ${diy}</small></div>
         </div>
       </div>
+      ${isToday ? `<div class="daybar" id="daybar"><div class="trk"><i style="width:${dl.pct}%"></i></div><span>${dl.txt}</span></div>` : ""}
+      ${ILLO.scene()}
+    </section>
+    <section class="hero-after">
       <div class="hero-meta split">
         <div class="done" id="done" aria-label="Filled in for this day">${doneList(r).map(([l, on]) => `<span class="${on ? "on" : ""}">${l}</span>`).join("")}</div>
         <div class="daynav">
@@ -996,7 +1290,6 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
           <button class="icon-btn" data-act="next" aria-label="Next day" title="Next day (→)" ${isToday ? "disabled" : ""}>${ICON.right}</button>
         </div>
       </div>
-      ${isToday ? `<div class="daybar" id="daybar"><div class="trk"><i style="width:${dl.pct}%"></i></div><span>${dl.txt}</span></div>` : ""}
     </section>
     ${catchupCard(d)}
     <section class="section">
@@ -1014,7 +1307,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     <section class="section">
       <span class="label">How did the day feel?</span>
       <div class="moods" id="moods" role="group" aria-label="Mood">
-        ${[1, 2, 3, 4, 5].map(n => `<button class="mood ${r.mood === n ? "on" : ""}" data-act="mood" data-mood="${n}" aria-label="${MOODS[n - 1]}, mood ${n} of 5" aria-pressed="${r.mood === n}"><i></i><span>${MOODS[n - 1]}</span></button>`).join("")}
+        ${[1, 2, 3, 4, 5].map(n => `<button class="mood ${r.mood === n ? "on" : ""}" data-act="mood" data-mood="${n}" aria-label="${MOODS[n - 1]}, mood ${n} of 5" aria-pressed="${r.mood === n}">${ILLO.face(n)}<span>${MOODS[n - 1]}</span></button>`).join("")}
       </div>
     </section>
     <section class="section">
@@ -1049,7 +1342,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     return `
     <section class="hero">
       <div class="eyebrow">${isSunday ? "Sunday rewind" : "Look back"}</div>
-      <div class="hero-row"><h1>Rewind</h1></div>
+      <div class="hero-row"><h1>Rewind</h1>${ILLO.spot("rewind", "hero-spot")}</div>
       <div class="hero-meta"><span class="sub">Re-reading is what makes time feel long.</span></div>
     </section>
     <section class="section">
@@ -1407,7 +1700,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     return `
     <section class="hero">
       <div class="eyebrow">Sleep · steps · movement · workouts</div>
-      <div class="hero-row"><h1>Body</h1><button class="chip accent" data-act="health-today">+ Add numbers</button></div>
+      <div class="hero-row"><h1>Body</h1>${ILLO.spot("body", "hero-spot")}</div><div class="hero-meta"><button class="chip accent" data-act="health-today">+ Add numbers</button></div>
     </section>
     <section class="section range-bar">
       <div class="seg range-seg" role="group" aria-label="Time range">${RANGES.map(([k, l]) => `<button class="${S.range === k ? "on" : ""}" data-act="range" data-range="${k}">${l}</button>`).join("")}</div>
@@ -1496,7 +1789,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
     return `
     <section class="hero">
       <div class="eyebrow">Make days distinct</div>
-      <div class="hero-row"><h1>Ideas</h1></div>
+      <div class="hero-row"><h1>Ideas</h1>${ILLO.spot("ideas", "hero-spot")}</div>
       <div class="hero-meta"><span class="sub">${trying.length ? `${trying.length} you're trying` : "Small things that slow time down."}</span></div>
     </section>
     <section class="section">
@@ -1703,12 +1996,13 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
 
   function settingsSheet() {
     const seg = ["auto", "day", "night"].map(t => `<button type="button" class="${settings.theme === t ? "on" : ""}" data-act="theme" data-theme-opt="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
-    const sw = ACCENTS.map(([c, n]) => `<button type="button" class="swatch ${settings.accent === c ? "on" : ""}" style="--c:${c}" data-act="accent" data-accent="${c}" aria-label="${n}" title="${n}"></button>`).join("");
+    const looks = STYLES.map(([k, n, d, c]) => `<button type="button" class="look ${settings.style === k ? "on" : ""}" data-act="look" data-look="${k}" aria-pressed="${settings.style === k}">
+        <span class="look-sw" aria-hidden="true">${c.map(x => `<i style="background:${x}"></i>`).join("")}</span><b>${n}</b><small>${d}</small></button>`).join("");
     openSheet(`
       <div class="sheet-head"><h2>Settings</h2><button class="icon-btn" data-act="close" aria-label="Close">${ICON.close}</button></div>
-      <h3>Appearance</h3>
-      <div class="row"><span>Mode</span><div class="seg">${seg}</div></div>
-      <div class="row" style="margin-top:16px"><span>Highlight</span><div class="swatches">${sw}</div></div>
+      <h3>Look</h3>
+      <div class="looks" role="group" aria-label="Look">${looks}</div>
+      <div class="row" style="margin-top:16px"><span>Mode</span><div class="seg">${seg}</div></div>
       <h3>Daily reminder</h3>
       <div class="row">
         <span>Remind me to write</span>
@@ -1858,7 +2152,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
       case "settings": settingsSheet(); break;
       case "close": sheet.close(); break;
       case "theme": settings.theme = el.dataset.themeOpt; saveSettings(); reveal(e, () => { applyTheme(); settingsSheet(); }); break;
-      case "accent": settings.accent = el.dataset.accent; saveSettings(); reveal(e, () => { applyTheme(); settingsSheet(); }); break;
+      case "look": settings.style = el.dataset.look; saveSettings(); reveal(e, () => { applyTheme(); settingsSheet(); paint(true); }); break;
       case "idea": Ideas.toggle(el.dataset.id); paint(true); break;
       case "idea-topic": S.ideaTopic = el.dataset.t; paint(true); break;
       case "mine-done": Ideas.done(el.dataset.id); paint(true); break;
@@ -1983,7 +2277,7 @@ html.vt-reveal::view-transition-new(root) { animation: reveal .75s var(--ease) b
   window.Stillday = {
     $, esc, pad, ymd, parse, today, addDays, addMonths, fmt, fmtNum, fmtSleep, dayOfYear, daysInYear, LS, toast, openSheet,
     closeSheet: () => { if (sheet.open) sheet.close(); }, paint, ICON, barsHtml, avgOf, Store, Ideas, settings, saveSettings,
-    settingsSheet, cleanDays: cleanImport, HOOKS, EXTRA, VIEWS, changed, hasLine
+    settingsSheet, cleanDays: cleanImport, ILLO, HOOKS, EXTRA, VIEWS, changed, hasLine
   };
 
   function start() {

@@ -164,6 +164,7 @@
     const url = sheetUrl(), askUrl = !url || editUrl;
     return `<div class="gate-card" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
       <div class="brand"><i></i>Tracker</div>
+      <div class="gate-scene">${A.ILLO ? A.ILLO.scene() : ""}</div>
       <h1 id="gateTitle">Sign in</h1>
       <p class="sub">Your journal, body numbers, flights and music are kept in your Tracker sheet in Google Drive. Sign in once on this device and it stays signed in.</p>
       <form id="loginForm" autocomplete="on">

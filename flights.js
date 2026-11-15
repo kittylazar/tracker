@@ -165,11 +165,11 @@
     const hero = `
     <section class="hero">
       <div class="eyebrow">Every trip counts</div>
-      <div class="hero-row"><h1>Flights</h1></div>
+      <div class="hero-row"><h1>Flights</h1>${A.ILLO.spot("flights", "hero-spot")}</div>
       <div class="hero-meta"><button class="chip accent" data-act="flight-add">+ Add flight</button><button class="chip" data-act="flight-import">Import CSV</button></div>
     </section>`;
     if (!F.length) {
-      return hero + `<section class="section"><div class="card empty">
+      return hero + `<section class="section"><div class="card empty">${A.ILLO.spot("flights", "empty-spot")}
         <b style="font-size:18px">No flights yet</b>
         <p>Add a flight with its airport codes (like BUD and LHR), or import a CSV export from myFlightradar24. Tracker works out the distance and draws the routes.</p>
         <div class="grid2" style="margin-top:6px"><button class="btn primary" data-act="flight-add">Add a flight</button><button class="btn" data-act="flight-import">Import CSV</button></div>
