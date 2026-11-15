@@ -1013,6 +1013,11 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     for (const d of days) { const l = all[d].workouts; if (l && l.length) return l[l.length - 1].type; }
     return "Walking";
   };
+  // Pace for running, in minutes per km. It is worked out from minutes and km, so nothing extra is stored.
+  const PACED = ["Running"];
+  const paceOf = w => w && PACED.includes(woType(w.type)) && w.min > 0 && w.km > 0 ? w.min / w.km : null;
+  const fmtPace = p => { if (!(p > 0) || p > 60) return ""; let m = Math.floor(p), s = Math.round((p - m) * 60); if (s === 60) { m++; s = 0; } return `${m}:${pad(s)}`; };
+  const parsePace = v => { const t = String(v || "").trim(), x = t.match(/^(\d{1,2})(?:[:.,'](\d{1,2}))?$/); if (!x) return null; const p = Number(x[1]) + (x[2] ? Number(x[2].padEnd(2, "0")) / 60 : 0); return p > 0 && p <= 60 ? p : null; };
   const woType = raw => { const s = String(raw || "").trim(), l = s.toLowerCase(); const hit = WO.find(w => w[0].toLowerCase() === l) || WO.find(w => w[2].test(l)); return hit ? hit[0] : (s.slice(0, 30) || "Other"); };
   const woIcon = type => (WO.find(w => w[0] === woType(type)) || [0, "✨"])[1];
   function cleanWorkouts(list) {
@@ -1721,7 +1726,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const st = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
     const mins = list.reduce((n, x) => n + (x.w.min || 0), 0), kcal = list.reduce((n, x) => n + (x.w.kcal || 0), 0), km = list.reduce((n, x) => n + (x.w.km || 0), 0);
     const activeDays = new Set(list.map(x => x.d)).size;
-    const types = new Map(); list.forEach(x => { const k = woType(x.w.type), t = types.get(k) || { n: 0, min: 0, km: 0 }; t.n++; t.min += x.w.min || 0; t.km += x.w.km || 0; types.set(k, t); });
+    const types = new Map(); list.forEach(x => { const k = woType(x.w.type), t = types.get(k) || { n: 0, min: 0, km: 0, pmin: 0, pkm: 0 }; t.n++; t.min += x.w.min || 0; t.km += x.w.km || 0; if (paceOf(x.w)) { t.pmin += x.w.min; t.pkm += x.w.km; } types.set(k, t); });
     const tRows = [...types].sort((a, b) => b[1].min - a[1].min || b[1].n - a[1].n), tMax = Math.max(1, ...tRows.map(r => r[1].min || r[1].n));
     const per = W.buckets.map(b => b.days.reduce((n, d) => n + ((Store.getDay(d) || {}).workouts || []).reduce((m, w) => m + (w.min || 0), 0), 0));
     const showPer = W.buckets.length <= 31;
@@ -1735,13 +1740,13 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
         ${st(`${Math.round(mins / list.length)} min`, "average workout")}
       </div>
       <div class="card" style="margin-top:12px;padding-top:6px;padding-bottom:6px">
-        ${tRows.map(([t, v], i) => `<div class="rank"><span class="no wo-ic">${woIcon(t)}</span><div class="nm"><b>${esc(t)}</b><small>${v.n}× ${v.km ? `· ${(Math.round(v.km * 10) / 10).toLocaleString("en-GB")} km` : ""}</small><div class="bar2"><i style="width:${((v.min || v.n) / tMax * 100).toFixed(1)}%;animation-delay:${i * 40}ms"></i></div></div><span class="val">${v.min ? `${fmtNum(v.min)} min` : ""}</span></div>`).join("")}
+        ${tRows.map(([t, v], i) => `<div class="rank"><span class="no wo-ic">${woIcon(t)}</span><div class="nm"><b>${esc(t)}</b><small>${v.n}× ${v.km ? `· ${(Math.round(v.km * 10) / 10).toLocaleString("en-GB")} km` : ""}${PACED.includes(t) && v.pkm ? ` · avg ${fmtPace(v.pmin / v.pkm)}/km` : ""}</small><div class="bar2"><i style="width:${((v.min || v.n) / tMax * 100).toFixed(1)}%;animation-delay:${i * 40}ms"></i></div></div><span class="val">${v.min ? `${fmtNum(v.min)} min` : ""}</span></div>`).join("")}
       </div>
       ${showPer ? "" : `<div class="card" style="margin-top:12px"><span class="label" style="margin:0">Training minutes per ${W.unit}</span>${barsHtml(per, Math.max(...per, 1), W.buckets.map((b, i) => W.buckets.length > 14 ? (i % Math.ceil(W.buckets.length / 7) === 0 ? bucketLabel(b, W.unit).replace("Week of ", "").split(" ")[0] : "") : bucketLabel(b, W.unit).replace("Week of ", "").split(" ").slice(0, 2).join(" ")), W.buckets.map((b, i) => `${bucketLabel(b, W.unit)}: ${per[i]} min`), "m12")}</div>`}
       <div class="stack" style="margin-top:12px">${list.slice().reverse().slice(0, 12).map(x => `<button class="card wo" data-act="wo-edit" data-date="${x.d}" data-i="${x.i}">
         <span class="wo-ic big">${woIcon(x.w.type)}</span>
         <span class="wo-tx"><b>${esc(x.w.type)}</b><small>${esc(fmt(x.d, { weekday: "short", day: "numeric", month: "short" }))}${x.w.start ? ` · ${esc(x.w.start)}` : ""}</small></span>
-        <span class="wo-v">${[x.w.min ? `${x.w.min} min` : "", x.w.km ? `${x.w.km} km` : "", x.w.kcal ? `${fmtNum(x.w.kcal)} kcal` : ""].filter(Boolean).join(" · ")}</span>
+        <span class="wo-v">${[x.w.min ? `${x.w.min} min` : "", x.w.km ? `${x.w.km} km` : "", paceOf(x.w) ? `${fmtPace(paceOf(x.w))}/km` : "", x.w.kcal ? `${fmtNum(x.w.kcal)} kcal` : ""].filter(Boolean).join(" · ")}</span>
       </button>`).join("")}</div>
     </section>`;
   }
@@ -2183,7 +2188,11 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
           <label><span class="label">kcal (optional)</span><input class="inp" name="kcal" type="number" inputmode="numeric" min="0" max="10000" value="${v(w && w.kcal)}"></label>
         </div>
         <div class="wo-mins" role="group" aria-label="Quick minutes">${[30, 45, 60, 90].map(m => `<button type="button" class="chip" data-act="wo-min" data-v="${m}">${m} min</button>`).join("")}</div>
-        <label style="display:block;margin-top:14px"><span class="label">Distance in km (optional)</span><input class="inp" name="km" type="number" inputmode="decimal" min="0" max="500" step="0.01" value="${v(w && w.km)}"></label>
+        <div class="grid2" style="margin-top:14px">
+          <label><span class="label">Distance in km (optional)</span><input class="inp" name="km" type="number" inputmode="decimal" min="0" max="500" step="0.01" value="${v(w && w.km)}"></label>
+          <label id="woPace" ${PACED.includes(pick) ? "" : "hidden"}><span class="label">Pace (min/km)</span><input class="inp" name="pace" type="text" inputmode="decimal" placeholder="5:30" value="${fmtPace(paceOf(w))}"></label>
+        </div>
+        <p class="note" id="woPaceNote" style="margin-top:6px" ${PACED.includes(pick) ? "" : "hidden"}>Enter any two of minutes, distance and pace, and Tracker fills in the third.</p>
         <div class="grid2" style="margin-top:20px">
           ${w ? `<button type="button" class="btn danger" data-act="wo-del" data-date="${d}" data-i="${i}">Delete</button>` : `<button type="button" class="btn" data-act="close">Cancel</button>`}
           <button class="btn primary">Save</button>
@@ -2331,7 +2340,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       }
       case "sleep-cancel": Sleep.cancel(); paint(true); toast("Bedtime cleared"); break;
       case "wo-add": flush(); woSheet(el.dataset.date || today(), null); break;
-      case "wo-min": { const inp = $("#woForm [name=min]"); if (inp) { inp.value = el.dataset.v; inp.focus(); } break; }
+      case "wo-min": { const inp = $("#woForm [name=min]"); if (inp) { inp.value = el.dataset.v; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.focus(); } break; }
       case "wo-edit": flush(); woSheet(el.dataset.date, Number(el.dataset.i)); break;
       case "wo-del": {
         if (!el.dataset.armed) { el.dataset.armed = "1"; el.textContent = "Tap again to delete"; break; }
@@ -2411,6 +2420,29 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     if (!len) return;
     form.elements.sh.value = Math.floor(len / 60); form.elements.sm.value = len % 60;
     const note = $("#sleepCalc"); if (note) note.textContent = `${fmtSleep(len)} in bed. Lower it if you lay awake for a while.`;
+  });
+  // Running: any two of minutes, distance and pace fill in the third.
+  document.addEventListener("input", e => {
+    const form = e.target.form;
+    if (!form || form.id !== "woForm") return;
+    const el = form.elements, n = k => { const x = Number(el[k].value); return el[k].value !== "" && x > 0 ? x : null; };
+    if (e.target.name === "type") {
+      const on = PACED.includes(e.target.value);
+      ["#woPace", "#woPaceNote"].forEach(s => { const x = $(s); if (x) x.hidden = !on; });
+      return;
+    }
+    if (!PACED.includes(String(new FormData(form).get("type")))) return;
+    const min = n("min"), km = n("km"), p = parsePace(el.pace.value);
+    if (e.target.name === "pace") {
+      if (!p) return;
+      if (min) el.km.value = Math.round(min / p * 100) / 100;
+      else if (km) el.min.value = Math.round(km * p);
+    } else if (e.target.name === "min" || e.target.name === "km") {
+      const other = e.target.name === "min" ? km : min;
+      if (min && km) el.pace.value = fmtPace(min / km);
+      else if (!other && p && e.target.name === "min" && min) el.km.value = Math.round(min / p * 100) / 100;
+      else if (!other && p && e.target.name === "km" && km) el.min.value = Math.round(km * p);
+    }
   });
   document.addEventListener("change", async e => {
     const extraChange = EXTRA.changes[e.target.id];
