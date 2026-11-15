@@ -512,6 +512,15 @@ a { color: var(--accent-ink); }
 .wo-pick { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; overflow-y: auto; padding: 2px; }
 .wo-pick label, .segopt { cursor: pointer; }
 .wo-more { margin-top: 8px; }
+.wi { display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: .6em; background: var(--wi); vertical-align: middle; flex: none; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .06); }
+.wi svg { width: 72%; height: 72%; fill: none; stroke: var(--ink); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.wo-chip .wi, .wo-pick .wi { width: 1.55em; height: 1.55em; margin: -3px 2px -3px -4px; }
+.wo-pick label > span .wi { padding: 0; border: 0; border-radius: .6em; background: var(--wi); }
+.wo-ic.big .wi { width: 100%; height: 100%; border-radius: 12px; }
+.dl-w .wi { width: 18px; height: 18px; border-radius: 6px; margin-left: 2px; }
+.wo-pick input:checked + span .wi { animation: pop .45s var(--spring); }
+.card.wo:hover .wi svg, .wo-chip:hover .wi svg { animation: wi-wiggle .5s ease; }
+@keyframes wi-wiggle { 30% { transform: rotate(-10deg); } 65% { transform: rotate(8deg); } }
 .wo-more summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 4px 2px; }
 .wo-mins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .wo-pick input, .segopt input { position: absolute; opacity: 0; pointer-events: none; }
@@ -631,6 +640,27 @@ h3.cx-h { font: 650 15px var(--sans); margin: 18px 0 0; }
 /* Chart text is sized in chart units, so it shrinks with the card; on a phone make it larger to stay readable. */
 @media (max-width: 600px) { .cx-t { font-size: 9.5px; } .cx-t.cx-cell { font-size: 7.5px; } .cx-t.cx-hl { font-size: 8px; } }
 @media (prefers-reduced-motion: reduce) { .cx-bar, .cx-pr .trk i { animation: none; } }
+/* Cuter charts: soft glowing curves that draw themselves, beads that pop, rings that sweep, blooms that open */
+.cx-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: .2; filter: blur(2.5px); animation: cx-fade 1.2s ease .35s both; }
+.cx-line.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cx-draw 1.1s var(--ease) forwards; }
+.cx-area { transform-box: fill-box; transform-origin: bottom; animation: cx-rise .9s var(--ease) .15s both; }
+.cx-pop { transform-box: fill-box; transform-origin: center; animation: cx-pop .5s var(--spring) both; }
+.cx-pop.late { animation-delay: .95s; }
+.cx-sweep { stroke-dasharray: 100; stroke-dashoffset: 100; animation: cx-draw-100 1.1s var(--ease) .1s forwards; }
+.cx-sbar { transform-origin: bottom; transform-box: fill-box; animation: grow .6s var(--ease) both; }
+.cx-bloom { transform-box: fill-box; transform-origin: center; animation: cx-bloom 1.2s var(--spring) both; }
+.cx-rad { animation: cx-fade .5s ease both; }
+.cx-ring.faint { stroke-dasharray: .6 3.4; stroke-linecap: round; }
+.cx-donut svg { filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--c1) 18%, transparent)); }
+.cx-pr .trk i { background-image: linear-gradient(180deg, rgba(255, 255, 255, .35), rgba(255, 255, 255, 0) 70%); }
+.cx-rr .trk .m { box-shadow: 0 0 0 2px var(--solid), 0 0 10px 2px color-mix(in srgb, var(--c1) 55%, transparent); animation: cx-pop .5s var(--spring) .3s both; }
+@keyframes cx-draw { to { stroke-dashoffset: 0; } }
+@keyframes cx-draw-100 { to { stroke-dashoffset: 0; } }
+@keyframes cx-fade { from { opacity: 0; } }
+@keyframes cx-rise { from { opacity: 0; transform: scaleY(.4); } }
+@keyframes cx-pop { from { transform: scale(0); } }
+@keyframes cx-bloom { from { opacity: 0; transform: scale(.4) rotate(-25deg); } }
+@media (prefers-reduced-motion: reduce) { .cx-line.draw, .cx-sweep { stroke-dashoffset: 0 !important; } }
 .ftags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ftags span { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
 .ftags span:first-child { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
@@ -1037,7 +1067,29 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
   const fmtPace = p => { if (!(p > 0) || p > 60) return ""; let m = Math.floor(p), s = Math.round((p - m) * 60); if (s === 60) { m++; s = 0; } return `${m}:${pad(s)}`; };
   const parsePace = v => { const t = String(v || "").trim(), x = t.match(/^(\d{1,2})(?:[:.,'](\d{1,2}))?$/); if (!x) return null; const p = Number(x[1]) + (x[2] ? Number(x[2].padEnd(2, "0")) / 60 : 0); return p > 0 && p <= 60 ? p : null; };
   const woType = raw => { const s = String(raw || "").trim(), l = s.toLowerCase(); const hit = WO.find(w => w[0].toLowerCase() === l) || WO.find(w => w[2].test(l)); return hit ? hit[0] : (s.slice(0, 30) || "Other"); };
-  const woIcon = type => (WO.find(w => w[0] === woType(type)) || [0, "✨"])[1];
+  // Hand-drawn line icons for each workout type, on a pastel tile. Unknown types get a sparkle.
+  const WO_SVG = {
+    Walking: [3, `<circle cx="13" cy="4.6" r="1.9"/><path d="M12.4 8.2 11 14l2.6 3 .6 4.4M11 14l-1.8 6.6M12.4 8.2l3 3.4 2.6.6M12.4 8.2 9.2 10l-1 3.2"/>`],
+    Running: [2, `<circle cx="15.5" cy="4.6" r="1.9"/><path d="M8 9.6l4-2.1 3 2.6 3.2 1M12 7.5 10 13.6l3.6 2.6-1.2 4.8M10 13.6l-3 1.6-3-.9"/><path d="M3 20h4" opacity=".5"/>`],
+    Cycling: [4, `<circle cx="6" cy="16" r="3.6"/><circle cx="18" cy="16" r="3.6"/><path d="M6 16l3.6-6.4h5.6L18 16M9.6 9.6 12.6 16H18M8.4 7.4h3M15.2 9.6 14 6.4h2.2"/>`],
+    Swimming: [3, `<circle cx="16.5" cy="6.6" r="1.9"/><path d="M4 11.4l5-3 3.2 3 3-1.4M3 15.6q2.25-2 4.5 0t4.5 0 4.5 0 4.5 0M3 19.6q2.25-2 4.5 0t4.5 0 4.5 0 4.5 0"/>`],
+    "Strength training": [1, `<path d="M7 7.5v9M17 7.5v9M4.2 9.8v4.4M19.8 9.8v4.4M7 12h10"/>`],
+    HIIT: [5, `<path d="M13.2 3 6 13.4h5.2L10.2 21 18 10.4h-5.2Z"/>`],
+    Yoga: [4, `<circle cx="12" cy="4.8" r="1.9"/><path d="M12 8.2v5.6M6 9.8l6 1.6 6-1.6M4.8 19c2.6-2.6 4.6-3.6 7.2-3.6s4.6 1 7.2 3.6M9.4 19h5.2"/>`],
+    Pilates: [2, `<circle cx="6.6" cy="10.6" r="1.8"/><path d="M8.6 12.4h5.6l4.2-4.4M14.2 12.4l2.4 3.2M3 17h18"/><circle cx="19.4" cy="6.6" r="1.6"/>`],
+    Squash: [1, `<ellipse cx="9.6" cy="8.8" rx="4.6" ry="5.8" transform="rotate(-38 9.6 8.8)"/><path d="M13 13.2 19.2 19.4M7.2 6.8l4.2 4.2M6.4 9.8l3 3M10 5.6l3 3"/><circle cx="18.6" cy="5.4" r="1.7"/>`],
+    Tennis: [1, `<ellipse cx="9.6" cy="8.8" rx="4.6" ry="5.8" transform="rotate(-38 9.6 8.8)"/><path d="M13 13.2 19.2 19.4M7.2 6.8l4.2 4.2M6.4 9.8l3 3"/><circle cx="18.6" cy="5.4" r="1.7"/>`],
+    Hiking: [4, `<path d="M3 19.4 9 10.4l4 5 2.2-3 5.8 7Z"/><path d="M15 7.4V3l3.4 1.2L15 5.4"/>`],
+    Dance: [2, `<circle cx="12" cy="4.6" r="1.9"/><path d="M12 8.2v5.6l-3.2 6.2M12 13.8l3.4 6M6.6 5.6 12 9l5-4"/><path d="M19 13.6v4.2" /><circle cx="18" cy="18.4" r="1.2"/>`],
+    Stretching: [5, `<circle cx="9.6" cy="4.6" r="1.9"/><path d="M9.6 8.2v6l-3 6.4M9.6 14.2l5 5.8M9.6 9.2l8.6-3.4"/>`],
+    Rowing: [3, `<circle cx="8" cy="7" r="1.9"/><path d="M8 10.4l3 3.6h5M4 18h16M13 9l6 9"/>`],
+    Climbing: [4, `<path d="M3 20 10 6l4 7 2-3 5 10Z"/><circle cx="14.6" cy="6" r="1.6"/>`],
+    Football: [1, `<circle cx="12" cy="12" r="8"/><path d="m12 8.4 3.2 2.3-1.2 3.8h-4l-1.2-3.8Z"/>`],
+    Elliptical: [3, `<ellipse cx="12" cy="15" rx="7" ry="3.4"/><path d="M8 15 11 5h3M16 15l-3-6"/>`],
+    "Core training": [5, `<circle cx="12" cy="12" r="7.6"/><path d="M12 7v10M8.6 9.4h6.8M8.6 14.6h6.8"/>`],
+    Other: [1, `<path d="M12 3.4c.8 4.2 2.8 6.2 7 7-4.2.8-6.2 2.8-7 7-.8-4.2-2.8-6.2-7-7 4.2-.8 6.2-2.8 7-7Z"/><path d="M18.6 16.4c.3 1.5 1 2.2 2.4 2.4-1.4.3-2.1 1-2.4 2.4-.3-1.4-1-2.1-2.4-2.4 1.4-.2 2.1-.9 2.4-2.4Z"/>`]
+  };
+  const woIcon = type => { const t = woType(type), s = WO_SVG[t] || WO_SVG.Other; return `<span class="wi" style="--wi:var(--t${s[0]})" aria-hidden="true"><svg viewBox="0 0 24 24">${s[1]}</svg></span>`; };
   function cleanWorkouts(list) {
     if (!Array.isArray(list)) return undefined;
     const n = (v, max) => (typeof v === "number" && isFinite(v) && v >= 0 && v <= max) ? Math.round(v * 10) / 10 : undefined;
@@ -1660,7 +1712,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const bars = vals.map((v, i) => {
       const h = v == null ? 2 : Math.max(3, (v / max) * H), b = W.buckets[i], one = b.days.length === 1;
       const tip = `${bucketLabel(b, W.unit)}: ${v == null ? (one ? "no data, tap to add" : "no data") : (one ? "" : "average ") + show(v)}`;
-      return `<rect class="${v == null ? "empty" : ""} ${one ? "tap" : ""}" ${one ? `data-act="health-day" data-date="${b.key}"` : ""} x="${(i * bw + gap / 2).toFixed(2)}" y="${(H - h).toFixed(1)}" width="${Math.max(.5, bw - gap).toFixed(2)}" height="${h.toFixed(1)}" rx="${Math.min(4, (bw - gap) / 2).toFixed(1)}" style="animation-delay:${Math.min(i, 60) * 10}ms"><title>${esc(tip)}</title></rect>`;
+      return `<rect class="${v == null ? "empty" : ""} ${one ? "tap" : ""}" ${one ? `data-act="health-day" data-date="${b.key}"` : ""} x="${(i * bw + gap / 2).toFixed(2)}" y="${(H - h).toFixed(1)}" width="${Math.max(.5, bw - gap).toFixed(2)}" height="${h.toFixed(1)}" rx="${Math.min(6, (bw - gap) / 2).toFixed(1)}" style="animation-delay:${Math.min(i, 60) * 18}ms"><title>${esc(tip)}</title></rect>`;
     }).join("");
     return { avg: avgOf(have), count: have.length, svg: `<svg viewBox="0 0 ${VW} ${H}" preserveAspectRatio="none" role="img">${bars}</svg>` };
   }
@@ -1904,7 +1956,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const hours = Array(24).fill(0); list.forEach(w => { if (w.start) hours[+w.start.slice(0, 2)]++; });
     const timed = hours.reduce((a, b) => a + b, 0), peak = hours.indexOf(Math.max(...hours));
     return `<section class="section stack">
-      ${mins ? xcard("Workout mix", "Share of training minutes by type.", X.donut([...types].map(([k, v]) => [`${woIcon(k)} ${k}`, v, `${fmtNum(v)} min`]), { center: mins >= 600 ? `${Math.round(mins / 60)}h` : `${mins}m`, sub: "trained", fmt: v => `${fmtNum(v)} min` })) : ""}
+      ${mins ? xcard("Workout mix", "Share of training minutes by type.", X.donut([...types].map(([k, v]) => [k, v, `${fmtNum(v)} min`]), { center: mins >= 600 ? `${Math.round(mins / 60)}h` : `${mins}m`, sub: "trained", fmt: v => `${fmtNum(v)} min` })) : ""}
       ${timed >= 3 ? xcard("When you work out", `Most often around <b>${pad(peak)}:00</b>. Based on ${timed} workouts with a start time.`, X.radial(hours, { labels: hours.map((_, i) => i % 6 === 0 ? pad(i) : ""), tip: (i, v) => `${pad(i)}:00 to ${pad(i)}:59: ${v} workout${v === 1 ? "" : "s"}`, center: `${pad(peak)}:00`, sub: "peak" })) : ""}
     </section>`;
   }
@@ -1915,8 +1967,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const defs = [
       ["Sleep", "sleepMin", v => fmtSleep(Math.round(v))],
       ["Steps", "steps", v => fmtNum(Math.round(v))],
-      ["Distance", "distanceKm", v => `${(Math.round(v * 10) / 10).toLocaleString("en-GB")} km`],
-      ["Stand", "standH", v => `${Math.round(v * 10) / 10} h`]
+      ["Distance", "distanceKm", v => `${(Math.round(v * 10) / 10).toLocaleString("en-GB")} km`]
     ];
     const everHas = k => Object.values(Store.all()).some(r => r[k] != null);
     const cards = defs.filter(([, k]) => !["activeKcal", "standH"].includes(k) || everHas(k)).map(([name, key, show]) => {
@@ -2190,9 +2241,8 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
         <p class="note" id="sleepCalc" style="margin-top:6px">Times fill in the length. Change the hours if you know you slept less than you were in bed.</p>
         <div class="grid2" style="margin-top:14px">
           <label><span class="label">Steps</span><input class="inp" name="steps" type="number" inputmode="numeric" min="0" max="200000" value="${v(r.steps)}"></label>
-          <label><span class="label">Stand (hours)</span><input class="inp" name="stand" type="number" inputmode="numeric" min="0" max="24" value="${v(r.standH)}"></label>
+          <label><span class="label">Distance (km)</span><input class="inp" name="km" type="number" inputmode="decimal" min="0" max="500" step="0.1" value="${v(r.distanceKm)}"></label>
         </div>
-        <label style="display:block;margin-top:14px"><span class="label">Walking + running distance (km)</span><input class="inp" name="km" type="number" inputmode="decimal" min="0" max="500" step="0.1" value="${v(r.distanceKm)}"></label>
         <span class="label" style="margin-top:16px">Workouts</span>
         <div class="wo-row" style="margin-top:0">
           ${(r.workouts || []).map((w, i) => `<button type="button" class="wo-chip" data-act="wo-edit" data-date="${d}" data-i="${i}">${woIcon(w.type)} ${esc(w.type)}${w.min ? ` · ${w.min} min` : ""}</button>`).join("")}
@@ -2205,7 +2255,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
   function woSheet(d, i) {
     const list = (Store.getDay(d) || {}).workouts || [], w = i != null ? list[i] : null, v = x => x == null ? "" : x;
     const pick = w ? w.type : lastWoType();
-    const opt = ([t, ic]) => `<label><input type="radio" name="type" value="${esc(t)}" ${pick === t ? "checked" : ""}><span>${ic} ${esc(t)}</span></label>`;
+    const opt = ([t]) => `<label><input type="radio" name="type" value="${esc(t)}" ${pick === t ? "checked" : ""}><span>${woIcon(t)} ${esc(t)}</span></label>`;
     const main = WO.filter(x => WO_MAIN.includes(x[0]) || x[0] === pick).sort((a, b) => (WO_MAIN.indexOf(a[0]) + 1 || 99) - (WO_MAIN.indexOf(b[0]) + 1 || 99));
     const more = WO.filter(x => !main.includes(x));
     openSheet(`
@@ -2440,7 +2490,6 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       bedAt, wakeAt,
       sleepMin: sh == null && sm == null ? fromTimes : Math.min(1440, Math.round((sh || 0) * 60 + (sm || 0))),
       steps: n("steps") == null ? null : Math.round(n("steps")),
-      standH: n("stand") == null ? null : Math.min(24, Math.round(n("stand"))),
       distanceKm: n("km")
     });
     sheet.close(); paint(true);

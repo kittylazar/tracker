@@ -51,6 +51,23 @@
   const num = v => fmtNum(Math.round(v));
   const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
   const legend = items => `<div class="legend cx-leg">${items.map(([name, i, note]) => `<span style="--lc:${col(i)}">${esc(name)}${note ? ` <b>${esc(note)}</b>` : ""}</span>`).join("")}</div>`;
+  // Unique ids for gradients and masks, since many charts share one page.
+  let uid = 0;
+  const nid = p => `${p}${++uid}`;
+  // A soft curve through points (Catmull-Rom turned into Bézier), clamped so it never overshoots the data much.
+  function smooth(pts, closed, yLo, yHi) {
+    const cy = v => yLo == null ? v : Math.max(yLo, Math.min(yHi, v));
+    if (pts.length < 2) return pts.length ? `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}` : "";
+    const P = i => closed ? pts[(i + pts.length) % pts.length] : pts[Math.max(0, Math.min(pts.length - 1, i))];
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    const n = closed ? pts.length : pts.length - 1, k = .18;
+    for (let i = 0; i < n; i++) {
+      const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+      const c1 = [p1[0] + (p2[0] - p0[0]) * k, cy(p1[1] + (p2[1] - p0[1]) * k)], c2 = [p2[0] - (p3[0] - p1[0]) * k, cy(p2[1] - (p3[1] - p1[1]) * k)];
+      d += `C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return closed ? d + "Z" : d;
+  }
   // Up to `max` evenly spread indexes out of n, always with the first and last.
   function spread(n, max) {
     if (n <= max) return Array.from({ length: n }, (_, i) => i);
@@ -79,22 +96,31 @@
     [0, .5, 1].forEach(t => { const v = lo + (hi - lo) * t; g += `<path class="cx-grid" d="M${L} ${y(v).toFixed(1)}H${W - R}"/><text class="cx-t" x="${L - 4}" y="${(y(v) + 2.6).toFixed(1)}" text-anchor="end">${esc(f(v))}</text>`; });
     (o.hlines || []).forEach(h => { g += `<path class="cx-goal" d="M${L} ${y(h.v).toFixed(1)}H${W - R}"/>${h.label ? `<text class="cx-t cx-hl" x="${L + 3}" y="${(y(h.v) - 2.5).toFixed(1)}">${esc(h.label)}</text>` : ""}`; });
     const base = y(o.base != null ? Math.max(lo, Math.min(hi, o.base)) : lo);
-    let paths = "";
+    let paths = "", defs = "";
     series.forEach((s, si) => {
       const c = col(s.c != null ? s.c : si);
-      let d = "", area = "", open = false, startX = 0, lastX = 0;
+      // Split into runs without gaps; each run is drawn as one soft curve.
+      const runs = []; let cur = null;
       s.vals.forEach((v, i) => {
-        if (v == null || !isFinite(v)) { if (open && s.area) area += `L${lastX.toFixed(1)} ${base.toFixed(1)}L${startX.toFixed(1)} ${base.toFixed(1)}Z`; open = false; return; }
-        const px = x(i), py = y(v);
-        if (!open) { startX = px; if (s.area) area += `M${px.toFixed(1)} ${py.toFixed(1)}`; }
-        else if (s.area) area += `L${px.toFixed(1)} ${py.toFixed(1)}`;
-        d += `${open ? "L" : "M"}${px.toFixed(1)} ${py.toFixed(1)}`;
-        open = true; lastX = px;
+        if (v == null || !isFinite(v)) { cur = null; return; }
+        if (!cur) runs.push(cur = []);
+        cur.push([x(i), y(v)]);
       });
-      if (open && s.area) area += `L${lastX.toFixed(1)} ${base.toFixed(1)}L${startX.toFixed(1)} ${base.toFixed(1)}Z`;
-      if (s.area) paths += `<path d="${area}" style="fill:${c};fill-opacity:.16"/>`;
-      paths += `<path class="cx-line${s.dash ? " dash" : ""}" d="${d}" style="stroke:${c};stroke-width:${s.w || 1.6};${s.faint ? "stroke-opacity:.35" : ""}"/>`;
-      if (s.dots || n === 1 || s.vals.filter(v => v != null).length === 1) s.vals.forEach((v, i) => { if (v != null) paths += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="1.8" style="fill:${c}"/>`; });
+      const curve = s.dash || runs.every(r => r.length > 160) ? (r => r.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join("")) : (r => smooth(r, false, T, H - B));
+      const d = runs.map(curve).join("");
+      if (s.area) {
+        const gid = nid("cxg");
+        defs += `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${c};stop-opacity:.34"/><stop offset="1" style="stop-color:${c};stop-opacity:0"/></linearGradient>`;
+        const area = runs.map(r => `${curve(r)}L${r[r.length - 1][0].toFixed(1)} ${base.toFixed(1)}L${r[0][0].toFixed(1)} ${base.toFixed(1)}Z`).join("");
+        paths += `<path class="cx-area" d="${area}" fill="url(#${gid})"/>`;
+      }
+      const w = s.w || 1.8;
+      if (!s.faint && !s.dash) paths += `<path class="cx-glow" d="${d}" style="stroke:${c};stroke-width:${(w * 3.2).toFixed(1)}"/>`;
+      paths += `<path class="cx-line${s.dash ? " dash" : " draw"}" ${s.dash ? "" : 'pathLength="1"'} d="${d}" style="stroke:${c};stroke-width:${w};${s.faint ? "stroke-opacity:.35" : ""}"/>`;
+      if (s.dots || n === 1 || s.vals.filter(v => v != null).length === 1) s.vals.forEach((v, i) => { if (v != null) paths += `<circle class="cx-pop" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2" style="fill:${c};animation-delay:${Math.min(i, 40) * 15}ms"/>`; });
+      // A little bead with a halo where the line ends.
+      const lastRun = runs[runs.length - 1];
+      if (lastRun && !s.faint && !s.dash && !s.dots) { const [ex, ey] = lastRun[lastRun.length - 1]; paths += `<circle class="cx-pop late" cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="6" style="fill:${c};fill-opacity:.18"/><circle class="cx-pop late" cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.6" style="fill:${c};stroke:var(--solid);stroke-width:1.2"/>`; }
     });
     let xl = "";
     if (o.labels) spread(n, o.ticks || 5).forEach((i, k, arr) => { xl += `<text class="cx-t" x="${x(i).toFixed(1)}" y="${H - 5}" text-anchor="${n === 1 ? "middle" : k === 0 ? "start" : k === arr.length - 1 ? "end" : "middle"}">${esc(o.labels[i] || "")}</text>`; });
@@ -108,7 +134,7 @@
       }
     }
     const named = series.filter(s => s.name);
-    return `${named.length > 1 || o.legend ? legend(named.map(s => [s.name, s.c != null ? s.c : series.indexOf(s)])) : ""}<svg class="cx" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label || "Line chart")}">${g}${paths}${xl}${hov}</svg>`;
+    return `${named.length > 1 || o.legend ? legend(named.map(s => [s.name, s.c != null ? s.c : series.indexOf(s)])) : ""}<svg class="cx" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label || "Line chart")}">${defs ? `<defs>${defs}</defs>` : ""}${g}${paths}${xl}${hov}</svg>`;
   }
 
   /* ---------- scatter with a trend line ----------
@@ -154,11 +180,17 @@
     if (rows.length > 5) rows = rows.slice(0, 4).concat([["Other", sum(rows.slice(4).map(p => p[1])), ""]]);
     let acc = 0;
     const segs = rows.map((p, i) => {
-      const pct = p[1] / total * 100, gap = rows.length > 1 ? .8 : 0;
-      const s = `<circle cx="50" cy="50" r="38" pathLength="100" stroke-dasharray="${Math.max(.1, pct - gap).toFixed(2)} ${(100 - Math.max(.1, pct - gap)).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" style="stroke:${p[0] === "Other" ? "var(--c6)" : col(i)}"><title>${esc(p[0])}: ${esc((o.fmt || num)(p[1]))} (${Math.round(pct)}%)</title></circle>`;
+      const pct = p[1] / total * 100, gap = rows.length > 1 ? 2.2 : 0;
+      const s = `<circle cx="50" cy="50" r="38" pathLength="100" stroke-dasharray="${Math.max(.1, pct - gap).toFixed(2)} ${(100 - Math.max(.1, pct - gap)).toFixed(2)}" stroke-dashoffset="${(-acc - gap / 2).toFixed(2)}" style="stroke:${p[0] === "Other" ? "var(--c6)" : col(i)}"><title>${esc(p[0])}: ${esc((o.fmt || num)(p[1]))} (${Math.round(pct)}%)</title></circle>`;
       acc += pct; return s;
     }).join("");
-    return `<div class="cx-donut"><svg viewBox="0 0 100 100" role="img" aria-label="${esc(o.label || "Shares")}"><g transform="rotate(-90 50 50)" fill="none" stroke-width="13">${segs}</g>
+    // The ring sweeps in through a mask; a faint track and an inner dotted ring make it feel like a little dial.
+    const mid = nid("cxm");
+    return `<div class="cx-donut"><svg viewBox="0 0 100 100" role="img" aria-label="${esc(o.label || "Shares")}">
+      <defs><mask id="${mid}"><circle class="cx-sweep" cx="50" cy="50" r="38" pathLength="100" fill="none" stroke="#fff" stroke-width="16" transform="rotate(-90 50 50)"/></mask></defs>
+      <circle cx="50" cy="50" r="38" fill="none" stroke="var(--surface2)" stroke-width="12"/>
+      <circle cx="50" cy="50" r="27" fill="none" stroke="var(--line)" stroke-width="1.2" stroke-dasharray=".1 3.2" stroke-linecap="round"/>
+      <g mask="url(#${mid})"><g transform="rotate(-90 50 50)" fill="none" stroke-width="11" stroke-linecap="${rows.length > 1 ? "round" : "butt"}">${segs}</g></g>
       ${o.center != null ? `<text x="50" y="${o.sub ? 49 : 54}" text-anchor="middle" class="cx-big">${esc(o.center)}</text>` : ""}${o.sub ? `<text x="50" y="61" text-anchor="middle" class="cx-t">${esc(o.sub)}</text>` : ""}</svg>
       <div class="cx-dl">${rows.map((p, i) => `<span style="--lc:${p[0] === "Other" ? "var(--c6)" : col(i)}"><em>${esc(p[0])}</em><b>${Math.round(p[1] / total * 100)}%</b>${p[2] ? `<small>${esc(p[2])}</small>` : ""}</span>`).join("")}</div></div>`;
   }
@@ -176,7 +208,7 @@
       series.forEach((s, si) => {
         const v = s.vals[i] || 0; if (!v) return;
         const h = v / tot * (H - B - T); yb -= h;
-        bars += `<rect x="${(i * bw + gap / 2).toFixed(1)}" y="${yb.toFixed(1)}" width="${Math.max(.6, bw - gap).toFixed(1)}" height="${Math.max(.4, h - .5).toFixed(1)}" rx="${Math.min(2, (bw - gap) / 3).toFixed(1)}" style="fill:${col(s.c != null ? s.c : si)}"><title>${esc(`${(o.tips && o.tips[i]) || l}\n${s.name}: ${f(v)}${totals[i] ? ` (${Math.round(v / totals[i] * 100)}%)` : ""}`)}</title></rect>`;
+        bars += `<rect class="cx-sbar" x="${(i * bw + gap / 2).toFixed(1)}" y="${yb.toFixed(1)}" width="${Math.max(.6, bw - gap).toFixed(1)}" height="${Math.max(.4, h - .5).toFixed(1)}" rx="${Math.min(3.5, (bw - gap) / 2.4).toFixed(1)}" style="fill:${col(s.c != null ? s.c : si)};animation-delay:${Math.min(i, 50) * 18}ms"><title>${esc(`${(o.tips && o.tips[i]) || l}\n${s.name}: ${f(v)}${totals[i] ? ` (${Math.round(v / totals[i] * 100)}%)` : ""}`)}</title></rect>`;
       });
     });
     const xl = spread(n, o.ticks || 6).map((i, k, arr) => `<text class="cx-t" x="${(i * bw + bw / 2).toFixed(1)}" y="${H - 4}" text-anchor="middle">${esc(labels[i])}</text>`).join("");
@@ -241,12 +273,19 @@
     if (!max) return none(o.empty || "No data yet.");
     const cx = 100, cy = 100, r0 = 34, r1 = 82, step = Math.PI * 2 / n, off = o.centered ? 0 : step / 2;
     const pt = (a, r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
-    let out = `<circle cx="${cx}" cy="${cy}" r="${r0 - 3}" class="cx-ring"/><circle cx="${cx}" cy="${cy}" r="${r1 + 2}" class="cx-ring"/>`;
+    let out = `<circle cx="${cx}" cy="${cy}" r="${r0 - 3}" class="cx-ring"/>`;
+    [.33, .66, 1].forEach(t => { out += `<circle cx="${cx}" cy="${cy}" r="${(r0 + (r1 - r0) * t).toFixed(1)}" class="cx-ring faint"/>`; });
     const peak = vals.indexOf(max);
+    // A soft "bloom" behind the bars: two layered, smoothed outlines, like petals breathing around the clock.
+    const gid = nid("cxr");
+    const bloom = (scale, rot) => smooth(vals.map((v, i) => pt(-Math.PI / 2 + i * step + off + rot, r0 + 2 + (v / max) * (r1 - r0) * scale)), true);
+    out += `<defs><radialGradient id="${gid}" cx="${cx}" cy="${cy}" r="${r1}" gradientUnits="userSpaceOnUse"><stop offset="${(r0 / r1).toFixed(2)}" style="stop-color:var(--c2);stop-opacity:.15"/><stop offset="1" style="stop-color:var(--c1);stop-opacity:.55"/></radialGradient></defs>
+      <g class="cx-bloom"><path d="${bloom(1.06, step * .35)}" fill="url(#${gid})" opacity=".55"/><path d="${bloom(.92, -step * .3)}" fill="url(#${gid})" opacity=".8"/></g>`;
     vals.forEach((v, i) => {
       const a = -Math.PI / 2 + i * step + off, len = v / max * (r1 - r0);
       const [x1, y1] = pt(a, r0), [x2, y2] = pt(a, r0 + Math.max(len, v ? 1.5 : 0));
-      if (v) out += `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}" class="cx-rad${i === peak ? " peak" : ""}" style="stroke-width:${Math.min(16, 2 * Math.PI * r0 / n * .72).toFixed(1)}"><title>${esc(o.tip ? o.tip(i, v) : `${i}: ${num(v)}`)}</title></path>`;
+      if (v) out += `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}" class="cx-rad${i === peak ? " peak" : ""}" style="stroke-width:${Math.min(9, 2 * Math.PI * r0 / n * .5).toFixed(1)};animation-delay:${i * 22}ms"><title>${esc(o.tip ? o.tip(i, v) : `${i}: ${num(v)}`)}</title></path>`;
+      if (i === peak && v) out += `<circle class="cx-pop late" cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="3.4" style="fill:var(--c1);stroke:var(--solid);stroke-width:1.4"/>`;
     });
     (o.labels || []).forEach((l, i) => { if (!l) return; const a = -Math.PI / 2 + i * step + (o.centered ? 0 : 0), [x, y] = pt(a, r1 + 11); out += `<text class="cx-t" x="${x.toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="middle">${esc(l)}</text>`; });
     if (o.center != null) out += `<text x="${cx}" y="${o.sub ? cy : cy + 4}" text-anchor="middle" class="cx-big sm">${esc(o.center)}</text>`;
@@ -268,7 +307,8 @@
     let out = "";
     bins.forEach((c, i) => {
       const h = c / max * (H - T - B);
-      out += `<rect class="cx-bar${c === max ? " peak" : ""}" x="${(i * bw + 1).toFixed(1)}" y="${(H - B - h).toFixed(1)}" width="${Math.max(.6, bw - 2).toFixed(1)}" height="${Math.max(c ? 1 : 0, h).toFixed(1)}" rx="${Math.min(3, bw / 4).toFixed(1)}"><title>${esc(`${f(lo + i * step)} to ${f(lo + (i + 1) * step)}: ${c} ${o.unit || "days"}`)}</title></rect>`;
+      if (c === max) out += `<circle class="cx-pop late" cx="${(i * bw + bw / 2).toFixed(1)}" cy="${(H - B - h - 5).toFixed(1)}" r="2" style="fill:var(--c1)"/>`;
+      out += `<rect class="cx-bar${c === max ? " peak" : ""}" x="${(i * bw + 1.2).toFixed(1)}" y="${(H - B - h).toFixed(1)}" width="${Math.max(.6, bw - 2.4).toFixed(1)}" height="${Math.max(c ? 1 : 0, h).toFixed(1)}" rx="${Math.min(5, (bw - 2.4) / 2).toFixed(1)}" style="animation-delay:${i * 28}ms"><title>${esc(`${f(lo + i * step)} to ${f(lo + (i + 1) * step)}: ${c} ${o.unit || "days"}`)}</title></rect>`;
     });
     (o.marks || []).forEach((m, i) => {
       if (m.v == null || m.v < lo || m.v > hi) return;
@@ -324,7 +364,7 @@
     const g = groups.filter(x => x.v != null && x.n >= (o.min || 3));
     if (g.length < 2) return none(`Needs at least ${o.min || 3} days in each group (${groups.map(x => `${x.label.toLowerCase()}: ${x.n || 0}`).join(", ")}).`);
     const max = Math.max(...g.map(x => x.v), 1e-9), f = o.fmt || num;
-    return `<div class="cx-pair">${g.map((x, i) => `<div class="cx-pr"><small>${esc(x.label)}</small><span class="trk"><i style="width:${Math.max(1.5, x.v / max * 100).toFixed(1)}%;background:${col(x.c != null ? x.c : i)};animation-delay:${i * 60}ms"></i></span><b>${esc(f(x.v))}</b><em>${fmtNum(x.n)} ${o.unit || "days"}</em></div>`).join("")}</div>`;
+    return `<div class="cx-pair">${g.map((x, i) => `<div class="cx-pr"><small>${esc(x.label)}</small><span class="trk"><i style="width:${Math.max(1.5, x.v / max * 100).toFixed(1)}%;background-color:${col(x.c != null ? x.c : i)};animation-delay:${i * 60}ms"></i></span><b>${esc(f(x.v))}</b><em>${fmtNum(x.n)} ${o.unit || "days"}</em></div>`).join("")}</div>`;
   }
   // "12% more" / "8% less" between two group means.
   function diff(a, b) {
