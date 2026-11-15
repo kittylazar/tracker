@@ -511,6 +511,9 @@ a { color: var(--accent-ink); }
 .wo-chip.add { color: var(--accent-ink); border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: none; }
 .wo-pick { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; overflow-y: auto; padding: 2px; }
 .wo-pick label, .segopt { cursor: pointer; }
+.wo-more { margin-top: 8px; }
+.wo-more summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 4px 2px; }
+.wo-mins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .wo-pick input, .segopt input { position: absolute; opacity: 0; pointer-events: none; }
 .wo-pick span { display: inline-block; padding: 7px 11px; border-radius: 99px; font-size: 13px; background: var(--surface2); border: 1px solid transparent; transition: background-color .2s, border-color .2s; }
 .wo-pick input:checked + span { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--text); }
@@ -997,12 +1000,19 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
   const WO = [
     ["Walking", "🚶", /walk/], ["Running", "🏃", /run|jog/], ["Cycling", "🚴", /cycl|bik/], ["Swimming", "🏊", /swim/],
     ["Strength training", "🏋️", /strength|weight/], ["HIIT", "🔥", /hiit|high intensity|interval/], ["Yoga", "🧘", /yoga/],
-    ["Pilates", "🤸", /pilates/], ["Hiking", "🥾", /hik/], ["Dance", "💃", /danc/], ["Elliptical", "⚙️", /ellip|cross trainer/],
-    ["Rowing", "🚣", /row/], ["Tennis", "🎾", /tennis|padel|squash|badminton/], ["Football", "⚽", /soccer|football/],
+    ["Pilates", "🤸", /pilates/], ["Squash", "🎾", /squash/], ["Hiking", "🥾", /hik/], ["Dance", "💃", /danc/], ["Elliptical", "⚙️", /ellip|cross trainer/],
+    ["Rowing", "🚣", /row/], ["Tennis", "🎾", /tennis|padel|badminton/], ["Football", "⚽", /soccer|football/],
     ["Basketball", "🏀", /basket/], ["Climbing", "🧗", /climb|boulder/], ["Skiing", "⛷️", /ski(?!p)/], ["Snowboarding", "🏂", /snowboard/],
     ["Skating", "⛸️", /skat/], ["Martial arts", "🥋", /martial|box|kick/], ["Core training", "💪", /core/],
     ["Stretching", "🙆", /stretch|flexib|cool ?down|mobility/], ["Other", "✨", /^$/]
   ];
+  // The types you log yourself, shown first when logging a workout. The rest sit under "More types".
+  const WO_MAIN = ["Walking", "Running", "Cycling", "Strength training", "Yoga", "Pilates", "Squash", "Swimming", "Hiking", "Dance", "Stretching", "Other"];
+  const lastWoType = () => {
+    const all = Store.all(), days = Object.keys(all).sort().reverse();
+    for (const d of days) { const l = all[d].workouts; if (l && l.length) return l[l.length - 1].type; }
+    return "Walking";
+  };
   const woType = raw => { const s = String(raw || "").trim(), l = s.toLowerCase(); const hit = WO.find(w => w[0].toLowerCase() === l) || WO.find(w => w[2].test(l)); return hit ? hit[0] : (s.slice(0, 30) || "Other"); };
   const woIcon = type => (WO.find(w => w[0] === woType(type)) || [0, "✨"])[1];
   function cleanWorkouts(list) {
@@ -1707,7 +1717,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     const list = [];
     W.days.forEach(d => { const r = Store.getDay(d); (r && r.workouts || []).forEach((w, i) => list.push({ d, i, w })); });
     const head = `<div class="row"><h2>Activities</h2><button class="chip" data-act="wo-add" data-date="${W.to}">+ Log workout</button></div>`;
-    if (!list.length) return `<section class="section">${head}<p class="sub" style="margin-top:8px">No workouts in this period. They arrive from the Fitness and Health apps through the iPhone Shortcut, from the Start workout and End workout Shortcuts, or you can log one yourself.</p></section>`;
+    if (!list.length) return `<section class="section">${head}<p class="sub" style="margin-top:8px">No workouts in this period. Tap <b>+ Log workout</b> after a training to add one.</p></section>`;
     const st = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
     const mins = list.reduce((n, x) => n + (x.w.min || 0), 0), kcal = list.reduce((n, x) => n + (x.w.kcal || 0), 0), km = list.reduce((n, x) => n + (x.w.km || 0), 0);
     const activeDays = new Set(list.map(x => x.d)).size;
@@ -1908,7 +1918,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
     ${workoutCharts(W)}
     ${dayLog(W)}
     ${bodyInsights()}
-    <p class="note" style="margin-top:16px">Numbers can come from Apple Health through an iPhone Shortcut. Bedtimes and workouts can also come from Shortcuts with no watch at all (see the tracker-setup folder). You can type anything in for any day, too.</p>`;
+    <p class="note" style="margin-top:16px">Steps, movement and energy come from Apple Health through the evening iPhone Shortcut, and bedtime and wake-up from the charger and alarm Shortcuts. Workouts are logged by hand with <b>+ Log workout</b>. You can type anything in for any day, too.</p>`;
   }
 
   const IDEAS = [
@@ -2153,12 +2163,17 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
 
   function woSheet(d, i) {
     const list = (Store.getDay(d) || {}).workouts || [], w = i != null ? list[i] : null, v = x => x == null ? "" : x;
+    const pick = w ? w.type : lastWoType();
+    const opt = ([t, ic]) => `<label><input type="radio" name="type" value="${esc(t)}" ${pick === t ? "checked" : ""}><span>${ic} ${esc(t)}</span></label>`;
+    const main = WO.filter(x => WO_MAIN.includes(x[0]) || x[0] === pick).sort((a, b) => (WO_MAIN.indexOf(a[0]) + 1 || 99) - (WO_MAIN.indexOf(b[0]) + 1 || 99));
+    const more = WO.filter(x => !main.includes(x));
     openSheet(`
       <div class="sheet-head"><h2>${w ? "Edit workout" : "Log a workout"}</h2><button class="icon-btn" data-act="close" aria-label="Close">${ICON.close}</button></div>
       <form id="woForm" data-date="${d}" data-i="${w ? i : ""}" style="margin-top:10px" autocomplete="off">
         <span class="label">Type</span>
-        <div class="wo-pick">${WO.map(([t, ic]) => `<label><input type="radio" name="type" value="${esc(t)}" ${(w ? w.type === t : t === "Walking") ? "checked" : ""}><span>${ic} ${esc(t)}</span></label>`).join("")}
-          ${w && !WO.some(x => x[0] === w.type) ? `<label><input type="radio" name="type" value="${esc(w.type)}" checked><span>✨ ${esc(w.type)}</span></label>` : ""}</div>
+        <div class="wo-pick">${main.map(opt).join("")}
+          ${!WO.some(x => x[0] === pick) ? `<label><input type="radio" name="type" value="${esc(pick)}" checked><span>✨ ${esc(pick)}</span></label>` : ""}</div>
+        <details class="wo-more"><summary>More types</summary><div class="wo-pick" style="margin-top:8px">${more.map(opt).join("")}</div></details>
         <div class="grid2" style="margin-top:14px">
           <label><span class="label">Date</span><input class="inp" name="date" type="date" max="${today()}" value="${d}" required></label>
           <label><span class="label">Started</span><input class="inp" name="start" type="time" value="${v(w && w.start)}"></label>
@@ -2167,6 +2182,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
           <label><span class="label">Minutes</span><input class="inp" name="min" type="number" inputmode="numeric" min="0" max="1440" value="${v(w && w.min)}" required></label>
           <label><span class="label">kcal (optional)</span><input class="inp" name="kcal" type="number" inputmode="numeric" min="0" max="10000" value="${v(w && w.kcal)}"></label>
         </div>
+        <div class="wo-mins" role="group" aria-label="Quick minutes">${[30, 45, 60, 90].map(m => `<button type="button" class="chip" data-act="wo-min" data-v="${m}">${m} min</button>`).join("")}</div>
         <label style="display:block;margin-top:14px"><span class="label">Distance in km (optional)</span><input class="inp" name="km" type="number" inputmode="decimal" min="0" max="500" step="0.01" value="${v(w && w.km)}"></label>
         <div class="grid2" style="margin-top:20px">
           ${w ? `<button type="button" class="btn danger" data-act="wo-del" data-date="${d}" data-i="${i}">Delete</button>` : `<button type="button" class="btn" data-act="close">Cancel</button>`}
@@ -2315,6 +2331,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--text) 30%, transparent);
       }
       case "sleep-cancel": Sleep.cancel(); paint(true); toast("Bedtime cleared"); break;
       case "wo-add": flush(); woSheet(el.dataset.date || today(), null); break;
+      case "wo-min": { const inp = $("#woForm [name=min]"); if (inp) { inp.value = el.dataset.v; inp.focus(); } break; }
       case "wo-edit": flush(); woSheet(el.dataset.date, Number(el.dataset.i)); break;
       case "wo-del": {
         if (!el.dataset.armed) { el.dataset.armed = "1"; el.textContent = "Tap again to delete"; break; }
